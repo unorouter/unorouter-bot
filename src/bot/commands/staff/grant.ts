@@ -15,7 +15,7 @@ import { Discord, Slash, SlashOption } from "discordx";
 export class GrantCommand {
   @Slash({
     name: "grant",
-    description: "Grant free balance to a member who linked their Discord on unorouter",
+    description: "Grant free balance to a member who linked their Discord account",
     dmPermission: false,
     defaultMemberPermissions: PermissionFlagsBits.ManageGuild,
   })

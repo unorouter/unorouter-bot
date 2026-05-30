@@ -50,6 +50,7 @@ jobs:
 
           echo BOT_NAME=${{ secrets.BOT_NAME }} >> .env
           echo WEBSITE_URL=${{ secrets.WEBSITE_URL }} >> .env
+          echo BOT_ACTIVITY=${{ secrets.BOT_ACTIVITY }} >> .env
 
 
       - name: Docker run

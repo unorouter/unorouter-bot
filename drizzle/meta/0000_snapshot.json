@@ -1,5 +1,5 @@
 {
-  "id": "7f84a62c-b4a4-4e20-8ace-3de719a12808",
+  "id": "7dd75820-8b03-4117-ad20-b96f6c15f9b0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -107,8 +107,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "unorouterUserId": {
-          "name": "unorouterUserId",
+        "newApiUserId": {
+          "name": "newApiUserId",
           "type": "integer",
           "primaryKey": false,
           "notNull": false

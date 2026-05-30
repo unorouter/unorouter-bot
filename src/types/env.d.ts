@@ -40,6 +40,7 @@ interface FeatureBotEnvironment {
   // Branding
   BOT_NAME: string;
   WEBSITE_URL: string;
+  BOT_ACTIVITY: string;
 }
 
 interface BotEnvironment extends CoreBotEnvironment, FeatureBotEnvironment {}

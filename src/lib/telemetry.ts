@@ -56,5 +56,6 @@ export function getLogger(name: string) {
   };
 }
 
-export const botLogger = getLogger("unorouter-bot");
-export const apiLogger = getLogger("unorouter-bot-api");
+const SERVICE_NAME = process.env.BOT_NAME?.trim() || "bot";
+export const botLogger = getLogger(`${SERVICE_NAME}-bot`);
+export const apiLogger = getLogger(`${SERVICE_NAME}-bot-api`);

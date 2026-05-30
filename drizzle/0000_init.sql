@@ -13,7 +13,7 @@ CREATE TABLE "BugReport" (
 CREATE TABLE "GrantLog" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"targetDiscordId" text NOT NULL,
-	"unorouterUserId" integer,
+	"newApiUserId" integer,
 	"quota" integer NOT NULL,
 	"reason" text NOT NULL,
 	"sourceType" text NOT NULL,

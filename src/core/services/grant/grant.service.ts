@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { grantLog } from "@/lib/db-schema";
 import { botLogger } from "@/lib/telemetry";
-import { WEBSITE_URL } from "@/shared/config/branding";
+import { BOT_NAME, WEBSITE_URL } from "@/shared/config/branding";
 import { findTextChannel } from "@/shared/utils/channel.utils";
 import { bot } from "@/main";
 import type { GrantResult, GrantSourceType } from "@/types";
@@ -36,8 +36,8 @@ const BOOST_GRANT_QUOTA = dollarsToQuota(BOOST_GRANT_DOLLARS);
 const CONNECT_GRANT_QUOTA = dollarsToQuota(
   parseFloat(process.env.CONNECT_GRANT_DOLLARS || "0"),
 );
-// Role given when a user proves their Discord is linked to unorouter.
-const CONNECTED_ROLE = process.env.CONNECTED_ROLE?.trim() || "unorouter.ai";
+// Role given when a user proves their Discord is linked to the platform.
+const CONNECTED_ROLE = process.env.CONNECTED_ROLE?.trim() || BOT_NAME;
 
 const CONNECT_GRANT_DOLLARS = parseFloat(
   process.env.CONNECT_GRANT_DOLLARS || "0",
@@ -53,7 +53,7 @@ export class GrantService {
   }
 
   /**
-   * Grant quota to whoever has linked this Discord ID on unorouter.
+   * Grant quota to whoever has linked this Discord ID on the platform.
    * Repeatable: every successful grant is appended to grantLog (audit, not a lock).
    * Returns { linked:false } when the Discord account is not linked.
    */
@@ -115,7 +115,7 @@ export class GrantService {
       .insert(grantLog)
       .values({
         targetDiscordId: params.targetDiscordId,
-        unorouterUserId: userId ?? null,
+        newApiUserId: userId ?? null,
         quota: params.quota,
         reason: params.reason,
         sourceType: params.sourceType,
@@ -135,7 +135,7 @@ export class GrantService {
 
   /**
    * One-time connect flow for the claim panel. Verifies the member's Discord is
-   * linked to unorouter. First successful verify grants a one-time connect bonus
+   * linked to the platform. First successful verify grants a one-time connect bonus
    * (recorded as sourceType="connect") and adds the connected role. Repeat clicks
    * only ensure the role - no second bonus.
    */
@@ -182,7 +182,7 @@ export class GrantService {
     if (!role || !role.editable) return;
     if (member.roles.cache.has(role.id)) return;
     await member.roles
-      .add(role, "Discord linked to unorouter")
+      .add(role, `Discord linked to ${BOT_NAME}`)
       .catch((e) =>
         botLogger.error("Connected role add failed", {
           member: member.id,
@@ -242,7 +242,7 @@ export class GrantService {
           .catch(() => {});
         await this.postBoostChannel(
           newMember.guild,
-          `${newMember} boosted the server! Link your Discord on unorouter to claim your boost reward.`,
+          `${newMember} boosted the server! Link your Discord on ${WEBSITE_URL} to claim your boost reward.`,
         );
       }
     } catch (e) {

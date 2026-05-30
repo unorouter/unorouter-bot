@@ -1,6 +1,7 @@
 import "@dotenvx/dotenvx/config";
 
 import { botLogger, shutdownTelemetry } from "@/lib/telemetry";
+import { WEBSITE_URL } from "@/shared/config/branding";
 import { ConfigValidator } from "@/shared/config/validator";
 import { ActivityType, GatewayIntentBits, Partials } from "discord.js";
 import { Client } from "discordx";
@@ -64,8 +65,9 @@ const main = async () => {
 
   await bot.login(token);
 
+  const activity = process.env.BOT_ACTIVITY?.trim() || WEBSITE_URL;
   bot.user?.setPresence({
-    activities: [{ name: "unorouter.ai", type: ActivityType.Watching }],
+    activities: [{ name: activity, type: ActivityType.Watching }],
   });
 };
 

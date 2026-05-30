@@ -8,7 +8,7 @@ export const RED_COLOR = 0xff0000;
 export const YELLOW_COLOR = 0xffaa00;
 export const GREEN_COLOR = 0x57f287;
 
-// Trigger the AI when a message starts with the bot's name (e.g. "unorouter help me").
+// Trigger the AI when a message starts with the bot's name (e.g. "<BOT_NAME> help me").
 // null when BOT_NAME is empty so callers can skip the replace.
 export const NAME_TRIGGER_PATTERN: RegExp | null = BOT_NAME
   ? new RegExp(`^${escapeRegex(BOT_NAME)}\\b\\s*`, "i")

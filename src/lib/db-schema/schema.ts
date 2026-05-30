@@ -260,7 +260,7 @@ export const grantLog = pgTable(
   {
     id: serial().primaryKey().notNull(),
     targetDiscordId: text().notNull(),
-    unorouterUserId: integer(),
+    newApiUserId: integer(),
     quota: integer().notNull(),
     reason: text().notNull(),
     sourceType: text().notNull(), // command | ticket | bug | boost
