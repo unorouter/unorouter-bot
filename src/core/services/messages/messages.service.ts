@@ -1,0 +1,230 @@
+import { DeleteUserMessagesService } from "@/core/services/messages/delete-user-messages.service";
+import { db } from "@/lib/db";
+import { memberMessages, memberGuild } from "@/lib/db-schema";
+import { and, count, eq } from "drizzle-orm";
+import { LEVEL_LIST, LEVEL_MESSAGES } from "@/shared/config/levels";
+import { JAIL, VOICE_ONLY } from "@/shared/config/roles";
+import { ConfigValidator } from "@/shared/config/validator";
+import {
+  Collection,
+  FetchMessagesOptions,
+  GuildTextBasedChannel,
+  Message,
+  PartialMessage,
+  TextChannel,
+} from "discord.js";
+
+export class MessagesService {
+  private static _levelSystemWarningLogged = false;
+
+  static async addMessageDb(message: Message<boolean>) {
+    // get info
+    const content = message.content;
+    const memberId = message.member?.user.id;
+    const channelId = message.channelId;
+    const messageId = message.id;
+    const guildId = message.guild?.id;
+
+    // if info doesnt exist
+    if (!content || !guildId || !memberId || message.interaction?.user.bot)
+      return;
+
+    // catch message edits
+    try {
+      await db.insert(memberMessages)
+        .values({ id: messageId, channelId, guildId, memberId, messageId })
+        .onConflictDoUpdate({
+          target: memberMessages.messageId,
+          set: { channelId, guildId, memberId },
+        });
+    } catch (_) {}
+  }
+
+  static async deleteMessageDb(message: Message<boolean> | PartialMessage) {
+    const messageId = message.id;
+
+    if (!messageId) return;
+
+    try {
+      await db.delete(memberMessages)
+        .where(eq(memberMessages.messageId, messageId));
+    } catch (_) {}
+  }
+
+  static async levelUpMessage(message: Message<boolean>) {
+    if (message.author.bot) return;
+
+    if (!ConfigValidator.isFeatureEnabled("SHOULD_USER_LEVEL_UP")) {
+      if (!this._levelSystemWarningLogged) {
+        ConfigValidator.logFeatureDisabled(
+          "Level Up System",
+          "SHOULD_USER_LEVEL_UP",
+        );
+        this._levelSystemWarningLogged = true;
+      }
+      return;
+    }
+
+    if (!ConfigValidator.isFeatureEnabled("LEVEL_ROLES")) {
+      if (!this._levelSystemWarningLogged) {
+        ConfigValidator.logFeatureDisabled("Level Up System", "LEVEL_ROLES");
+        this._levelSystemWarningLogged = true;
+      }
+      return;
+    }
+
+    const memberInJail = message.member?.roles.cache.some(
+      (role) =>
+        JAIL === role.name.toLowerCase() ||
+        VOICE_ONLY === role.name.toLowerCase(),
+    );
+
+    if (memberInJail) return;
+
+    const [result] = await db
+      .select({ count: count() })
+      .from(memberMessages)
+      .where(
+        and(
+          eq(memberMessages.memberId, message.member?.id ?? ""),
+          eq(memberMessages.guildId, message.guild?.id ?? ""),
+        )
+      );
+
+    const memberMessagesCount = result?.count ?? 0;
+
+    for (const item of LEVEL_LIST) {
+      if (memberMessagesCount >= item.count) {
+        const role = message.guild?.roles.cache.find(
+          (role) => role.name === item.role,
+        );
+
+        if (
+          role &&
+          !message.member?.roles.cache.has(role?.id) &&
+          role.editable
+        ) {
+          await message.member?.roles.add(role);
+
+          const messages =
+            LEVEL_MESSAGES[role.name as keyof typeof LEVEL_MESSAGES];
+          const randomMessage = messages[
+            Math.floor(Math.random() * messages.length)
+          ]
+            .replace(/\${user}/g, message.member?.toString() ?? "")
+            .replace(/\${role}/g, role.toString());
+
+          await (message.channel as TextChannel).send({
+            content: randomMessage,
+            allowedMentions: { users: [], roles: [] },
+          });
+        }
+      }
+    }
+  }
+
+  // Fetch messages utility
+  static async fetchMessages(
+    channel: GuildTextBasedChannel,
+    limit: number = 100,
+  ): Promise<Message[]> {
+    let out: Message[] = [];
+    if (limit <= 100) {
+      let messages: Collection<string, Message> = await channel.messages.fetch({
+        limit: limit,
+      });
+      const messagesArray = Array.from(messages.values(), (value) => value);
+      out.push(...messagesArray);
+    } else {
+      const rounds = limit / 100 + (limit % 100 ? 1 : 0);
+      let lastId: string = "";
+      for (let x = 0; x < rounds; x++) {
+        const options: FetchMessagesOptions = {
+          limit: 100,
+        };
+
+        if (lastId.length > 0) options.before = lastId;
+
+        const messages: Collection<string, Message> =
+          await channel.messages.fetch(options);
+
+        const messagesArray = Array.from(messages.values(), (value) => value);
+        out.push(...messagesArray);
+
+        lastId = messagesArray[messagesArray.length - 1]?.id || "";
+      }
+    }
+    // remove duplicates
+    return out.filter(
+      (message, index, self) =>
+        self.findIndex((m) => m.id === message.id) === index,
+    );
+  }
+
+  // Check warnings utility
+  static async checkWarnings(message: Message<boolean>) {
+    const content = message.content;
+    const member = message.member;
+
+    if (!member || !message.guild) return;
+
+    const memberGuildData = await db.query.memberGuild.findFirst({
+      where: eq(memberGuild.memberId, member.id),
+    });
+
+    if (!memberGuildData) return;
+
+    const inviteRegex =
+      /(?:discord\.gg\/|discordapp\.com\/invite\/|discord\.com\/invite\/)([a-zA-Z0-9-]+)/gi;
+    const matches = content.matchAll(inviteRegex);
+    const inviteCodes = [...matches].map((match) => match[1]);
+
+    if (inviteCodes.length === 0) return;
+
+    let hasExternalInvite = false;
+
+    for (const code of inviteCodes) {
+      try {
+        const invite = await message.client.fetchInvite(code);
+        if (invite.guild?.id !== message.guild.id) {
+          hasExternalInvite = true;
+          break;
+        }
+      } catch {
+        // Invalid invite or couldn't fetch - treat as external to be safe
+        hasExternalInvite = true;
+        break;
+      }
+    }
+
+    if (hasExternalInvite) {
+      await message.delete();
+
+      const currentWarnings = memberGuildData.warnings + 1;
+
+      await db.update(memberGuild)
+        .set({ warnings: currentWarnings })
+        .where(eq(memberGuild.id, memberGuildData.id));
+
+      if (currentWarnings < 4) {
+        try {
+          await member.send(
+            `Stop posting invites, you have been warned. Warnings: ${currentWarnings}, you will be muted at 3 warnings.`,
+          );
+        } catch (error) {}
+      } else {
+        await DeleteUserMessagesService.jailAndDeleteMessages({
+          jail: true,
+          memberId: member.id,
+          user: member.user,
+          guild: message.guild,
+          reason: `Posted Discord invite links (${currentWarnings} warnings)`,
+        });
+
+        try {
+          await member.send(`You have been muted asks a mod to unmute you.`);
+        } catch (error) {}
+      }
+    }
+  }
+}

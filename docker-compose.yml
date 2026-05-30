@@ -1,0 +1,57 @@
+services:
+  unorouter-bot-db:
+    container_name: unorouter-bot-db
+    image: postgres:18-alpine
+    restart: always
+    volumes:
+      - ~/duplicati-volume/source/unorouter-bot-db-pgbackup:/backups
+    networks:
+      - proxy
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+  unorouter-bot-pgbackup:
+    container_name: unorouter-bot-pgbackup
+    image: prodrigestivill/postgres-backup-local:18-alpine
+    restart: always
+    networks:
+      - proxy
+    volumes:
+      - ~/duplicati-volume/source/unorouter-bot-db-pgbackup:/backups
+    links:
+      - unorouter-bot-db
+    depends_on:
+      - unorouter-bot-db
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_EXTRA_OPTS=-Fc
+      - SCHEDULE=@every 6h
+      - BACKUP_KEEP_DAYS=7
+      - HEALTHCHECK_PORT=8080
+
+  unorouter-bot:
+    container_name: unorouter-bot
+    depends_on:
+      - unorouter-bot-db
+    links:
+      - unorouter-bot-db
+    networks:
+      - proxy
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      target: prod
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}
+
+networks:
+  proxy:
+    external: false
+    name: proxy

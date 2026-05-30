@@ -1,0 +1,65 @@
+name: Docker Prod
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create env file
+        run: |
+          echo TOKEN=${{ secrets.TOKEN }} > .env
+
+          echo POSTGRES_USER=${{ secrets.POSTGRES_USER }} >> .env
+          echo POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} >> .env
+          echo POSTGRES_HOST=${{ secrets.POSTGRES_HOST }} >> .env
+          echo POSTGRES_DB=${{ secrets.POSTGRES_DB }} >> .env
+
+          echo GUILD_IDS=${{ secrets.GUILD_IDS }} >> .env
+
+          echo GOOGLE_GENERATIVE_AI_API_KEY=${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }} >> .env
+          echo KLIPY_API_KEY=${{ secrets.KLIPY_API_KEY }} >> .env
+
+          echo STAFF_ROLES=${{ secrets.STAFF_ROLES }} >> .env
+          echo STATUS_ROLES=${{ secrets.STATUS_ROLES }} >> .env
+          echo LEVEL_ROLES=${{ secrets.LEVEL_ROLES }} >> .env
+          echo MEMBER_ROLES=${{ secrets.MEMBER_ROLES }} >> .env
+          echo HELPER_ROLES=${{ secrets.HELPER_ROLES }} >> .env
+          echo BOT_OWNER_ID=${{ secrets.BOT_OWNER_ID }} >> .env
+
+          echo GENERAL_CHANNELS=${{ secrets.GENERAL_CHANNELS }} >> .env
+          echo BOT_CHANNELS=${{ secrets.BOT_CHANNELS }} >> .env
+          echo IS_CONSTRAINED_TO_BOT_CHANNEL=${{ secrets.IS_CONSTRAINED_TO_BOT_CHANNEL }} >> .env
+          echo SHOULD_USER_LEVEL_UP=${{ secrets.SHOULD_USER_LEVEL_UP }} >> .env
+
+          echo TICKET_CATEGORY_ID=${{ secrets.TICKET_CATEGORY_ID }} >> .env
+          echo TICKET_LOG_CHANNEL=${{ secrets.TICKET_LOG_CHANNEL }} >> .env
+          echo BUG_REPORT_FORUM_CHANNEL=${{ secrets.BUG_REPORT_FORUM_CHANNEL }} >> .env
+
+          echo NEW_API_URL=${{ secrets.NEW_API_URL }} >> .env
+          echo NEW_API_ADMIN_TOKEN=${{ secrets.NEW_API_ADMIN_TOKEN }} >> .env
+          echo GRANT_LOG_CHANNEL=${{ secrets.GRANT_LOG_CHANNEL }} >> .env
+          echo BOOST_GRANT_QUOTA=${{ secrets.BOOST_GRANT_QUOTA }} >> .env
+
+          echo BOT_NAME=${{ secrets.BOT_NAME }} >> .env
+          echo WEBSITE_URL=${{ secrets.WEBSITE_URL }} >> .env
+          echo DISCORD_INVITE=${{ secrets.DISCORD_INVITE }} >> .env
+          echo BOT_ICON=${{ secrets.BOT_ICON }} >> .env
+
+          echo POSTHOG_KEY=${{ secrets.POSTHOG_KEY }} >> .env
+
+      - name: Docker run
+        run: docker compose up -d --force-recreate --build
+
+      - name: remove unused images, containers, volumes, and networks
+        run: docker image prune -a -f --filter "until=24h" && docker container prune -f --filter "until=24h" && docker volume prune -f && docker network prune -f --filter "until=24h"

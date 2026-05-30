@@ -1,0 +1,180 @@
+import {
+  extractCodeFromAttachments,
+  extractImageUrls,
+} from "@/shared/ai/attachment-processor";
+import { CHAT_SYSTEM_PROMPT } from "@/shared/ai/prompts";
+import { googleClient, ImageDownloadError } from "@/shared/integrations/google-ai";
+import { botLogger } from "@/lib/telemetry";
+import { generateText, ModelMessage, stepCountIs } from "ai";
+import { Message } from "discord.js";
+import { LRUCache } from "lru-cache";
+import { AiContextService } from "./ai-context.service";
+import { NAME_TRIGGER_PATTERN } from "@/shared/config/branding";
+import type { AiChatResponse } from "@/types";
+
+const channelMessages = new LRUCache<string, ModelMessage[]>({ max: 1000 });
+
+export class AiChatService {
+  static async generateResponse(
+    message: Message,
+    tools: Record<string, any>,
+  ): Promise<AiChatResponse | null> {
+    const userMsg = this.extractUserMessage(message);
+    const { replyContext, repliedImages } =
+      await AiContextService.getReplyContext(message);
+
+    let attachmentContext = "";
+    if (message.attachments.size > 0) {
+      const codeContent = await extractCodeFromAttachments(message);
+      if (codeContent) {
+        attachmentContext = `\n\n[Code from attachment]:\n${codeContent}`;
+      }
+    }
+
+    const fullMessage = `${userMsg}${attachmentContext}${replyContext}`;
+
+    const messageImages = await extractImageUrls(message);
+    const allImages = [...messageImages, ...repliedImages];
+
+    let userMessage = this.buildUserMessage(fullMessage, allImages);
+    const messages = channelMessages.get(message.channel.id) || [];
+    messages.push(userMessage);
+
+    const runAI = async () => {
+      return googleClient.executeWithRotation(async (model) => {
+        return generateText({
+          model,
+          system: CHAT_SYSTEM_PROMPT,
+          messages: [...messages],
+          tools,
+          stopWhen: stepCountIs(3),
+          maxOutputTokens: 1024,
+          maxRetries: 0,
+        });
+      });
+    };
+
+    let result;
+    try {
+      result = await runAI();
+    } catch (error) {
+      if (error instanceof ImageDownloadError) {
+        botLogger.warn("Retrying AI request without images");
+        userMessage = this.buildUserMessage(fullMessage, []);
+        for (let i = 0; i < messages.length; i++) {
+          messages[i] = this.stripImagesFromMessage(messages[i]);
+        }
+        messages[messages.length - 1] = userMessage;
+        result = await runAI();
+      } else {
+        throw error;
+      }
+    }
+
+    if (!result) {
+      botLogger.warn("AI returned null result");
+      return null;
+    }
+
+    const { text, steps } = result;
+    const responseText = this.stripFakeGifUrls(text?.trim() || "");
+
+    botLogger.info("AI response", {
+      hasText: !!responseText,
+      textLength: responseText.length,
+      hasSteps: !!steps?.length,
+    });
+
+    messages.push({ role: "assistant", content: responseText });
+    channelMessages.set(message.channel.id, messages);
+
+    return {
+      text: responseText,
+      gifUrl: this.extractGifFromSteps(steps),
+    };
+  }
+
+  private static extractUserMessage(message: Message): string {
+    const mentionPattern = new RegExp(`^<@[!&]?\\d+>\\s*`);
+
+    let content = message.content.replace(mentionPattern, "");
+    if (NAME_TRIGGER_PATTERN) {
+      content = content.replace(NAME_TRIGGER_PATTERN, "");
+    }
+    return content.trim();
+  }
+
+  private static buildUserMessage(
+    text: string,
+    images: string[],
+  ): ModelMessage {
+    if (images.length > 0) {
+      return {
+        role: "user",
+        content: [
+          { type: "text", text },
+          ...images.map((url) => ({
+            type: "image" as const,
+            image: url,
+          })),
+        ],
+      };
+    }
+    return { role: "user", content: text };
+  }
+
+  private static stripImagesFromMessage(msg: ModelMessage): ModelMessage {
+    if (Array.isArray(msg.content)) {
+      const filtered = (msg.content as any[]).filter(
+        (part) => part.type !== "image",
+      );
+      if (filtered.length === 0) return { role: "user", content: "" };
+      if (filtered.length === 1 && filtered[0].type === "text") {
+        return { role: "user", content: filtered[0].text } as ModelMessage;
+      }
+      return { role: "user", content: filtered } as ModelMessage;
+    }
+    return msg;
+  }
+
+  private static stripFakeGifUrls(text: string): string {
+    // Strip hallucinated GIF URLs and broken markdown images from models that can't use tools
+    let cleaned = text
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+      .replace(/https?:\/\/media\.tenor\.com\/[^\s)>\]]+/gi, "")
+      .replace(/https?:\/\/[^\s)>\]]*klipy\.com\/[^\s)>\]]+/gi, "")
+      .replace(/https?:\/\/[^\s)>\]]*giphy\.[^\s)>\]]+/gi, "")
+      .replace(/https?:\/\/[^\s)>\]]*\.gif(?:\?[^\s)>\]]*)?/gi, "");
+
+    // Strip hallucinated structured JSON blocks some models emit instead of using the tool
+    // e.g. {"text": "...", "gif": "searchMemeGifs query: ..."} or multiline variants
+    cleaned = cleaned.replace(
+      /\{\s*"text"\s*:\s*"[^"]*"\s*,\s*"gif"\s*:\s*"[^"]*"\s*\}/gs,
+      "",
+    );
+
+    // If the entire response was a JSON wrapper, try to extract meaningful text from it
+    const jsonWrapper = text.match(
+      /^\s*\{\s*"text"\s*:\s*"([^"]*)"\s*,\s*"gif"\s*:\s*"[^"]*"\s*\}\s*$/s,
+    );
+    if (jsonWrapper && !cleaned.trim()) {
+      cleaned = jsonWrapper[1];
+    }
+
+    return cleaned.replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  private static extractGifFromSteps(steps: any[]): string | null {
+    if (!steps?.length) return null;
+
+    for (const step of steps) {
+      const gifResult = step.toolResults?.find(
+        (result: any) => result.toolName === "searchMemeGifs",
+      );
+      if (gifResult?.output?.success && gifResult.output.gifUrl) {
+        return gifResult.output.gifUrl;
+      }
+    }
+    return null;
+  }
+}
