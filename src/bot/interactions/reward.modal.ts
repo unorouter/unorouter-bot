@@ -20,10 +20,10 @@ export function buildRewardModal(
 
   const amount = new TextInputBuilder()
     .setCustomId("reward_amount")
-    .setLabel("Quota amount")
+    .setLabel("Dollar amount")
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
-    .setPlaceholder("e.g. 500000");
+    .setPlaceholder("e.g. 1 = $1");
 
   const reason = new TextInputBuilder()
     .setCustomId("reward_reason")
@@ -46,9 +46,9 @@ export function parseRewardModal(
   const [source, sourceId, targetId] = rest.split(":");
   if (!source || !sourceId || !targetId) return null;
 
-  const amount = parseInt(
+  // amount is in DOLLARS (may be decimal); callers convert to quota.
+  const amount = parseFloat(
     interaction.fields.getTextInputValue("reward_amount").trim(),
-    10,
   );
   if (!Number.isFinite(amount) || amount <= 0) return null;
 

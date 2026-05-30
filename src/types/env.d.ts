@@ -40,8 +40,12 @@ interface FeatureBotEnvironment {
   NEW_API_URL: string;
   NEW_API_ADMIN_TOKEN: string;
   GRANT_LOG_CHANNEL: string;
-  BOOST_GRANT_QUOTA: string;
   BOOST_CHANNEL: string;
+  // Bonus amounts in DOLLARS; bot converts via QUOTA_PER_DOLLAR (default 500000).
+  QUOTA_PER_DOLLAR: string;
+  BOOST_GRANT_DOLLARS: string;
+  CONNECT_GRANT_DOLLARS: string;
+  CONNECTED_ROLE: string;
 
   // Branding
   BOT_NAME: string;

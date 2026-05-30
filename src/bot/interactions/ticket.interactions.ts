@@ -1,4 +1,4 @@
-import { GrantService } from "@/core/services/grant/grant.service";
+import { dollarsToQuota, GrantService } from "@/core/services/grant/grant.service";
 import { TicketService } from "@/core/services/tickets/ticket.service";
 import { isStaff } from "@/core/utils/command.utils";
 import { botLogger } from "@/lib/telemetry";
@@ -119,7 +119,7 @@ export class TicketInteractions {
     try {
       const result = await GrantService.grantQuota({
         targetDiscordId: parsed.targetId,
-        quota: parsed.amount,
+        quota: dollarsToQuota(parsed.amount),
         reason: parsed.reason,
         sourceType: "ticket",
         sourceId: parsed.sourceId,
@@ -132,7 +132,7 @@ export class TicketInteractions {
         return;
       }
       await interaction.editReply(
-        `Granted **${parsed.amount}** quota to <@${parsed.targetId}>.`,
+        `Granted **$${parsed.amount}** to <@${parsed.targetId}>.`,
       );
     } catch (err) {
       botLogger.error("Ticket reward failed", { error: String(err) });

@@ -1,5 +1,5 @@
 import { BugReportService } from "@/core/services/bugs/bug-report.service";
-import { GrantService } from "@/core/services/grant/grant.service";
+import { dollarsToQuota, GrantService } from "@/core/services/grant/grant.service";
 import { isStaff } from "@/core/utils/command.utils";
 import { botLogger } from "@/lib/telemetry";
 import {
@@ -71,10 +71,11 @@ export class BugInteractions {
       await interaction.editReply("Invalid amount.");
       return;
     }
+    const quota = dollarsToQuota(parsed.amount);
     try {
       const result = await GrantService.grantQuota({
         targetDiscordId: parsed.targetId,
-        quota: parsed.amount,
+        quota,
         reason: parsed.reason,
         sourceType: "bug",
         sourceId: parsed.sourceId,
@@ -91,10 +92,10 @@ export class BugInteractions {
       await BugReportService.markApproved(
         parsed.sourceId,
         interaction.user.id,
-        parsed.amount,
+        quota,
       );
       await interaction.editReply(
-        `Approved and granted **${parsed.amount}** quota to <@${parsed.targetId}>. Reason: ${parsed.reason}`,
+        `Approved and granted **$${parsed.amount}** to <@${parsed.targetId}>. Reason: ${parsed.reason}`,
       );
       const thread = interaction.channel as ThreadChannel;
       await thread.setArchived(true).catch(() => {});

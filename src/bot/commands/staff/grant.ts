@@ -1,4 +1,4 @@
-import { GrantService } from "@/core/services/grant/grant.service";
+import { dollarsToQuota, GrantService } from "@/core/services/grant/grant.service";
 import { isStaff, safeDeferReply, safeEditReply } from "@/core/utils/command.utils";
 import { botLogger } from "@/lib/telemetry";
 import {
@@ -29,10 +29,10 @@ export class GrantCommand {
     user: User,
     @SlashOption({
       name: "amount",
-      description: "Quota to grant",
+      description: "Dollar amount to grant (e.g. 1 = $1)",
       required: true,
-      minValue: 1,
-      type: ApplicationCommandOptionType.Integer,
+      minValue: 0,
+      type: ApplicationCommandOptionType.Number,
     })
     amount: number,
     @SlashOption({
@@ -57,10 +57,16 @@ export class GrantCommand {
       return;
     }
 
+    const quota = dollarsToQuota(amount);
+    if (quota <= 0) {
+      await safeEditReply(interaction, "Amount must be greater than 0.");
+      return;
+    }
+
     try {
       const result = await GrantService.grantQuota({
         targetDiscordId: user.id,
-        quota: amount,
+        quota,
         reason,
         sourceType: "command",
         grantedByDiscordId: interaction.user.id,
@@ -76,7 +82,7 @@ export class GrantCommand {
 
       await safeEditReply(
         interaction,
-        `Granted **${amount}** quota to ${user.tag}. Reason: ${reason}`,
+        `Granted **$${amount}** to ${user.tag}. Reason: ${reason}`,
       );
     } catch (err) {
       botLogger.error("/grant failed", { error: String(err) });

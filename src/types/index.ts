@@ -91,7 +91,12 @@ export interface SpamDetectionResult {
 }
 
 // Grant
-export type GrantSourceType = "command" | "ticket" | "bug" | "boost";
+export type GrantSourceType =
+  | "command"
+  | "ticket"
+  | "bug"
+  | "boost"
+  | "connect";
 
 export interface GrantResult {
   linked: boolean;

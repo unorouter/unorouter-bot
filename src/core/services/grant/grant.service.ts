@@ -5,6 +5,7 @@ import { WEBSITE_URL } from "@/shared/config/branding";
 import { findTextChannel } from "@/shared/utils/channel.utils";
 import { bot } from "@/main";
 import type { GrantResult, GrantSourceType } from "@/types";
+import { and, eq } from "drizzle-orm";
 import {
   type Guild,
   type GuildMember,
@@ -17,7 +18,31 @@ const NEW_API_ADMIN_TOKEN = process.env.NEW_API_ADMIN_TOKEN || "";
 const GRANT_LOG_CHANNEL_NAME =
   process.env.GRANT_LOG_CHANNEL?.trim() || "grants-log";
 const BOOST_CHANNEL_NAME = process.env.BOOST_CHANNEL?.trim() || "boosters";
-const BOOST_GRANT_QUOTA = parseInt(process.env.BOOST_GRANT_QUOTA || "0", 10);
+
+// Bonuses are configured in DOLLARS; bot converts to new-api quota units.
+// new-api default QuotaPerUnit = 500000 quota = $1.
+const QUOTA_PER_DOLLAR = parseInt(
+  process.env.QUOTA_PER_DOLLAR || "500000",
+  10,
+);
+export function dollarsToQuota(dollars: number): number {
+  return Math.round(dollars * QUOTA_PER_DOLLAR);
+}
+const BOOST_GRANT_DOLLARS = parseFloat(process.env.BOOST_GRANT_DOLLARS || "0");
+const BOOST_GRANT_QUOTA = dollarsToQuota(BOOST_GRANT_DOLLARS);
+const CONNECT_GRANT_QUOTA = dollarsToQuota(
+  parseFloat(process.env.CONNECT_GRANT_DOLLARS || "0"),
+);
+// Role given when a user proves their Discord is linked to unorouter.
+const CONNECTED_ROLE = process.env.CONNECTED_ROLE?.trim() || "unorouter.ai";
+
+const CONNECT_GRANT_DOLLARS = parseFloat(
+  process.env.CONNECT_GRANT_DOLLARS || "0",
+);
+
+export type ConnectResult =
+  | { status: "not_linked" }
+  | { status: "connected"; bonusGranted: boolean; dollars: number };
 
 export class GrantService {
   static isConfigured(): boolean {
@@ -104,6 +129,64 @@ export class GrantService {
     return `You need to link your Discord account on ${WEBSITE_URL} first (Settings -> link Discord), then try again.`;
   }
 
+  /**
+   * One-time connect flow for the claim panel. Verifies the member's Discord is
+   * linked to unorouter. First successful verify grants a one-time connect bonus
+   * (recorded as sourceType="connect") and adds the connected role. Repeat clicks
+   * only ensure the role - no second bonus.
+   */
+  static async connectBonus(member: GuildMember): Promise<ConnectResult> {
+    if (!this.isConfigured()) return { status: "not_linked" };
+
+    const prior = await db.query.grantLog
+      .findFirst({
+        where: and(
+          eq(grantLog.targetDiscordId, member.id),
+          eq(grantLog.sourceType, "connect"),
+        ),
+      })
+      .catch(() => null);
+
+    if (prior) {
+      // Already claimed once: they were linked before. Just ensure the role.
+      await this.ensureConnectedRole(member);
+      return { status: "connected", bonusGranted: false, dollars: 0 };
+    }
+
+    const quota = CONNECT_GRANT_QUOTA;
+    const result = await this.grantQuota({
+      targetDiscordId: member.id,
+      quota: quota > 0 ? quota : 1, // endpoint requires > 0; min 1 just verifies the link
+      reason: "discord connect bonus",
+      sourceType: "connect",
+      sourceId: null,
+      grantedByDiscordId: "system",
+    }).catch(() => ({ linked: false, quota }) as GrantResult);
+
+    if (!result.linked) return { status: "not_linked" };
+
+    await this.ensureConnectedRole(member);
+    return {
+      status: "connected",
+      bonusGranted: quota > 0,
+      dollars: CONNECT_GRANT_DOLLARS,
+    };
+  }
+
+  private static async ensureConnectedRole(member: GuildMember): Promise<void> {
+    const role = member.guild.roles.cache.find((r) => r.name === CONNECTED_ROLE);
+    if (!role || !role.editable) return;
+    if (member.roles.cache.has(role.id)) return;
+    await member.roles
+      .add(role, "Discord linked to unorouter")
+      .catch((e) =>
+        botLogger.error("Connected role add failed", {
+          member: member.id,
+          error: String(e),
+        }),
+      );
+  }
+
   private static async announce(
     targetDiscordId: string,
     quota: number,
@@ -145,7 +228,7 @@ export class GrantService {
       if (result.linked) {
         await this.postBoostChannel(
           newMember.guild,
-          `${newMember} boosted the server and earned **${BOOST_GRANT_QUOTA}** balance. Thank you!`,
+          `${newMember} boosted the server and earned **$${BOOST_GRANT_DOLLARS}** balance. Thank you!`,
         );
       } else {
         await newMember
