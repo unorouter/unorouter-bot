@@ -9,10 +9,10 @@ import {
 } from "@/bot/interactions/reward.modal";
 import {
   ButtonInteraction,
+  type GuildTextBasedChannel,
   GuildMember,
   MessageFlags,
   ModalSubmitInteraction,
-  ThreadChannel,
 } from "discord.js";
 import { ButtonComponent, Discord, ModalComponent } from "discordx";
 
@@ -64,7 +64,7 @@ export class TicketInteractions {
       return;
     }
     const claimed = await TicketService.claim(
-      interaction.channel as ThreadChannel,
+      interaction.channel as GuildTextBasedChannel,
       member!,
     );
     await interaction.reply({
@@ -83,7 +83,7 @@ export class TicketInteractions {
       return;
     }
     await interaction.reply({ content: "Closing ticket..." });
-    await TicketService.close(interaction.channel as ThreadChannel);
+    await TicketService.close(interaction.channel as GuildTextBasedChannel);
   }
 
   @ButtonComponent({ id: "ticket_reward" })

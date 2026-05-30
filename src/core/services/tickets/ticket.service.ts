@@ -11,10 +11,11 @@ import {
   ChannelType,
   type Guild,
   type GuildMember,
+  type GuildTextBasedChannel,
   type Message,
+  OverwriteType,
+  PermissionFlagsBits,
   type TextChannel,
-  ThreadAutoArchiveDuration,
-  type ThreadChannel,
 } from "discord.js";
 
 const TICKET_CATEGORY_ID = process.env.TICKET_CATEGORY_ID?.trim() || "";
@@ -40,59 +41,86 @@ export class TicketService {
     );
   }
 
+  /**
+   * Create a private ticket channel under TICKET_CATEGORY_ID, visible only to the
+   * opener + staff roles (and the bot). Returns the channel or null on failure.
+   */
   static async open(
     guild: Guild,
     opener: GuildMember,
     category: TicketCategory,
-  ): Promise<ThreadChannel | null> {
-    const parent = await this.getPanelChannel(guild);
-    if (!parent) {
-      botLogger.error("Ticket open failed: no usable parent channel");
+  ): Promise<TextChannel | null> {
+    if (!TICKET_CATEGORY_ID) {
+      botLogger.error("Ticket open failed: TICKET_CATEGORY_ID not configured");
       return null;
     }
 
-    const thread = await parent.threads.create({
-      name: `${category}-${opener.user.username}`.slice(0, 90),
-      autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
-      type: ChannelType.PrivateThread,
-      reason: `Ticket opened by ${opener.user.tag}`,
-    });
+    const staffRoleIds = STAFF_ROLES.map(
+      (name) => guild.roles.cache.find((r) => r.name === name)?.id,
+    ).filter((id): id is string => Boolean(id));
 
-    await thread.members.add(opener.id).catch(() => {});
+    const overwrites = [
+      {
+        id: guild.roles.everyone.id,
+        type: OverwriteType.Role,
+        deny: PermissionFlagsBits.ViewChannel,
+      },
+      {
+        id: opener.id,
+        type: OverwriteType.Member,
+        allow:
+          PermissionFlagsBits.ViewChannel |
+          PermissionFlagsBits.SendMessages |
+          PermissionFlagsBits.ReadMessageHistory |
+          PermissionFlagsBits.AttachFiles,
+      },
+      ...staffRoleIds.map((id) => ({
+        id,
+        type: OverwriteType.Role,
+        allow:
+          PermissionFlagsBits.ViewChannel |
+          PermissionFlagsBits.SendMessages |
+          PermissionFlagsBits.ReadMessageHistory |
+          PermissionFlagsBits.AttachFiles,
+      })),
+    ];
+
+    let channel: TextChannel;
+    try {
+      channel = await guild.channels.create({
+        name: `${category}-${opener.user.username}`.slice(0, 90),
+        type: ChannelType.GuildText,
+        parent: TICKET_CATEGORY_ID,
+        permissionOverwrites: overwrites,
+        reason: `Ticket opened by ${opener.user.tag}`,
+      });
+    } catch (err) {
+      botLogger.error("Ticket channel create failed", { error: String(err) });
+      return null;
+    }
 
     await db.insert(ticket).values({
       guildId: guild.id,
-      channelId: thread.id,
+      channelId: channel.id,
       openerId: opener.id,
       category,
     });
 
-    const staffPing = STAFF_ROLES.map((name) => {
-      const role = guild.roles.cache.find((r) => r.name === name);
-      return role ? `<@&${role.id}>` : "";
-    })
-      .filter(Boolean)
-      .join(" ");
-
-    await thread.send({
+    const staffPing = staffRoleIds.map((id) => `<@&${id}>`).join(" ");
+    await channel.send({
       content: `${opener} opened a **${category}** ticket. ${staffPing}`.trim(),
       components: [this.buildControls()],
-      allowedMentions: { users: [opener.id], roles: STAFF_ROLES.length ? undefined : [] },
+      allowedMentions: { users: [opener.id], roles: staffRoleIds },
     });
 
-    return thread;
+    return channel;
   }
 
   static async logTicketMessage(message: Message): Promise<void> {
     if (message.author.bot) return;
-    if (!message.channel.isThread()) return;
+    if (!message.guild) return;
 
-    const row = await db.query.ticket.findFirst({
-      where: and(
-        eq(ticket.channelId, message.channel.id),
-        eq(ticket.status, "open"),
-      ),
-    });
+    const row = await this.getOpenTicket(message.channel.id);
     if (!row) return;
 
     await db
@@ -106,8 +134,11 @@ export class TicketService {
       .catch(() => {});
   }
 
-  static async claim(thread: ThreadChannel, staff: GuildMember): Promise<boolean> {
-    const row = await this.getOpenTicket(thread.id);
+  static async claim(
+    channel: GuildTextBasedChannel,
+    staff: GuildMember,
+  ): Promise<boolean> {
+    const row = await this.getOpenTicket(channel.id);
     if (!row) return false;
     await db
       .update(ticket)
@@ -116,8 +147,8 @@ export class TicketService {
     return true;
   }
 
-  static async close(thread: ThreadChannel): Promise<boolean> {
-    const row = await this.getOpenTicket(thread.id);
+  static async close(channel: GuildTextBasedChannel): Promise<boolean> {
+    const row = await this.getOpenTicket(channel.id);
     if (!row) return false;
 
     await db
@@ -125,9 +156,9 @@ export class TicketService {
       .set({ status: "closed", closedAt: new Date().toISOString() })
       .where(eq(ticket.id, row.id));
 
-    const transcript = await this.buildTranscript(row.id, thread.name);
+    const transcript = await this.buildTranscript(row.id, channel.name);
     if (TICKET_LOG_CHANNEL) {
-      const logChannel = await thread.guild.channels
+      const logChannel = await channel.guild.channels
         .fetch(TICKET_LOG_CHANNEL)
         .catch(() => null);
       if (logChannel?.type === ChannelType.GuildText) {
@@ -139,7 +170,7 @@ export class TicketService {
       }
     }
 
-    await thread.setArchived(true).catch(() => {});
+    await channel.delete(`Ticket #${row.id} closed`).catch(() => {});
     return true;
   }
 
@@ -151,7 +182,7 @@ export class TicketService {
 
   private static async buildTranscript(
     ticketId: number,
-    threadName: string,
+    channelName: string,
   ): Promise<AttachmentBuilder> {
     const messages = await db.query.ticketMessage.findMany({
       where: eq(ticketMessage.ticketId, ticketId),
@@ -161,24 +192,9 @@ export class TicketService {
     const lines = messages.map(
       (m) => `[${m.createdAt}] ${m.authorTag}: ${m.content}`,
     );
-    const body = `Transcript for ticket #${ticketId} (${threadName})\n\n${lines.join("\n")}\n`;
+    const body = `Transcript for ticket #${ticketId} (${channelName})\n\n${lines.join("\n")}\n`;
     return new AttachmentBuilder(Buffer.from(body, "utf-8"), {
       name: `ticket-${ticketId}.txt`,
     });
-  }
-
-  private static async getPanelChannel(
-    guild: Guild,
-  ): Promise<TextChannel | null> {
-    // If a category id is configured, find the first text channel under it.
-    if (TICKET_CATEGORY_ID) {
-      const inCategory = guild.channels.cache.find(
-        (c) =>
-          c.type === ChannelType.GuildText &&
-          c.parentId === TICKET_CATEGORY_ID,
-      ) as TextChannel | undefined;
-      if (inCategory) return inCategory;
-    }
-    return null;
   }
 }
