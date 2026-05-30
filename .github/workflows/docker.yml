@@ -33,13 +33,6 @@ jobs:
           echo STAFF_ROLES=${{ secrets.STAFF_ROLES }} >> .env
           echo STATUS_ROLES=${{ secrets.STATUS_ROLES }} >> .env
           echo LEVEL_ROLES=${{ secrets.LEVEL_ROLES }} >> .env
-          echo MEMBER_ROLES=${{ secrets.MEMBER_ROLES }} >> .env
-          echo HELPER_ROLES=${{ secrets.HELPER_ROLES }} >> .env
-          echo BOT_OWNER_ID=${{ secrets.BOT_OWNER_ID }} >> .env
-
-          echo GENERAL_CHANNELS=${{ secrets.GENERAL_CHANNELS }} >> .env
-          echo BOT_CHANNELS=${{ secrets.BOT_CHANNELS }} >> .env
-          echo IS_CONSTRAINED_TO_BOT_CHANNEL=${{ secrets.IS_CONSTRAINED_TO_BOT_CHANNEL }} >> .env
           echo SHOULD_USER_LEVEL_UP=${{ secrets.SHOULD_USER_LEVEL_UP }} >> .env
 
           echo TICKET_CATEGORY=${{ secrets.TICKET_CATEGORY }} >> .env

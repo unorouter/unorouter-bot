@@ -35,21 +35,6 @@ export class ConfigValidator {
       feature: "Level Up System",
     },
     {
-      key: "SHOULD_USER_LEVEL_UP",
-      required: false,
-      feature: "Level Up System",
-    },
-    {
-      key: "BOT_CHANNELS",
-      required: false,
-      feature: "Bot Channel Restrictions",
-    },
-    {
-      key: "IS_CONSTRAINED_TO_BOT_CHANNEL",
-      required: false,
-      feature: "Bot Channel Restrictions",
-    },
-    {
       key: "TICKET_CATEGORY",
       required: false,
       feature: "Ticket System",

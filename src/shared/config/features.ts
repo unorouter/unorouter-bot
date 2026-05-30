@@ -1,7 +1,5 @@
 // Feature flags parsed from environment variables
 
-export const IS_CONSTRAINED_TO_BOT_CHANNEL =
-  process.env.IS_CONSTRAINED_TO_BOT_CHANNEL?.trim() === "true";
-
+// Leveling is ON by default; set SHOULD_USER_LEVEL_UP=false to disable.
 export const SHOULD_USER_LEVEL_UP =
-  process.env.SHOULD_USER_LEVEL_UP?.trim() === "true";
+  process.env.SHOULD_USER_LEVEL_UP?.trim() !== "false";

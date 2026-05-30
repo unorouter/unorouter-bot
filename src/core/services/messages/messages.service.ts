@@ -2,9 +2,9 @@ import { DeleteUserMessagesService } from "@/core/services/messages/delete-user-
 import { db } from "@/lib/db";
 import { memberMessages, memberGuild } from "@/lib/db-schema";
 import { and, count, eq } from "drizzle-orm";
-import { LEVEL_LIST, LEVEL_MESSAGES } from "@/shared/config/levels";
+import { LEVEL_LIST, levelUpMessage } from "@/shared/config/levels";
+import { SHOULD_USER_LEVEL_UP } from "@/shared/config/features";
 import { JAIL, VOICE_ONLY } from "@/shared/config/roles";
-import { ConfigValidator } from "@/shared/config/validator";
 import {
   Collection,
   FetchMessagesOptions,
@@ -54,24 +54,7 @@ export class MessagesService {
   static async levelUpMessage(message: Message<boolean>) {
     if (message.author.bot) return;
 
-    if (!ConfigValidator.isFeatureEnabled("SHOULD_USER_LEVEL_UP")) {
-      if (!this._levelSystemWarningLogged) {
-        ConfigValidator.logFeatureDisabled(
-          "Level Up System",
-          "SHOULD_USER_LEVEL_UP",
-        );
-        this._levelSystemWarningLogged = true;
-      }
-      return;
-    }
-
-    if (!ConfigValidator.isFeatureEnabled("LEVEL_ROLES")) {
-      if (!this._levelSystemWarningLogged) {
-        ConfigValidator.logFeatureDisabled("Level Up System", "LEVEL_ROLES");
-        this._levelSystemWarningLogged = true;
-      }
-      return;
-    }
+    if (!SHOULD_USER_LEVEL_UP || LEVEL_LIST.length === 0) return;
 
     const memberInJail = message.member?.roles.cache.some(
       (role) =>
@@ -106,16 +89,11 @@ export class MessagesService {
         ) {
           await message.member?.roles.add(role);
 
-          const messages =
-            LEVEL_MESSAGES[role.name as keyof typeof LEVEL_MESSAGES];
-          const randomMessage = messages[
-            Math.floor(Math.random() * messages.length)
-          ]
-            .replace(/\${user}/g, message.member?.toString() ?? "")
-            .replace(/\${role}/g, role.toString());
-
           await (message.channel as TextChannel).send({
-            content: randomMessage,
+            content: levelUpMessage(
+              message.member?.toString() ?? "",
+              role.toString(),
+            ),
             allowedMentions: { users: [], roles: [] },
           });
         }

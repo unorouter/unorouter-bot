@@ -17,18 +17,10 @@ interface FeatureBotEnvironment {
 
   // Role system
   STAFF_ROLES: string;
-  HELPER_ROLES: string;
   STATUS_ROLES: string;
-  MEMBER_ROLES: string;
   LEVEL_ROLES: string;
-  BOT_OWNER_ID: string;
-
-  // Channel configuration
-  GENERAL_CHANNELS: string;
-  BOT_CHANNELS: string;
 
   // Behavior control
-  IS_CONSTRAINED_TO_BOT_CHANNEL: string;
   SHOULD_USER_LEVEL_UP: string;
 
   // Tickets + bug reports (channel NAMES / slugs, matched by substring)
