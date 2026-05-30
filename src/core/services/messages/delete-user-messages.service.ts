@@ -95,9 +95,15 @@ export class DeleteUserMessagesService {
       });
     });
 
+    // Replace ALL of the member's roles with only Jail: removing Verified (and any
+    // others) is what actually isolates them - Jail can see only PRISON, and Verified
+    // is denied PRISON view, so a jailed user must not keep Verified.
     const role = params.guild.roles.cache.get(jailRoleId);
-    if (discordMember && role?.editable)
-      await discordMember.roles.add(jailRoleId).catch(error);
+    if (discordMember && role?.editable) {
+      await discordMember.roles
+        .set([jailRoleId], "Jailed: spam detected")
+        .catch(() => discordMember.roles.add(jailRoleId).catch(error));
+    }
 
     if (!alreadyJailed) {
       await this.sendJailNotification(params);

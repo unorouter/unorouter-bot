@@ -1,5 +1,6 @@
 // Events
 import "./events/ai-chat";
+import "./events/guild-member-add";
 import "./events/guild-member-update";
 import "./events/message-create";
 import "./events/thread-create";

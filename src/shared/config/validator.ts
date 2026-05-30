@@ -50,7 +50,7 @@ export class ConfigValidator {
       feature: "Bot Channel Restrictions",
     },
     {
-      key: "TICKET_CATEGORY_ID",
+      key: "TICKET_CATEGORY",
       required: false,
       feature: "Ticket System",
     },
