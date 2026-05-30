@@ -39,6 +39,7 @@ interface FeatureBotEnvironment {
   // Grants (new-api integration)
   NEW_API_URL: string;
   NEW_API_ADMIN_TOKEN: string;
+  NEW_API_USER_ID: string;
   GRANT_LOG_CHANNEL: string;
   BOOST_CHANNEL: string;
   // Bonus amounts in DOLLARS; bot converts via QUOTA_PER_DOLLAR (default 500000).

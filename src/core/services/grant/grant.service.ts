@@ -14,6 +14,9 @@ import {
 
 const NEW_API_URL = process.env.NEW_API_URL?.replace(/\/$/, "") || "";
 const NEW_API_ADMIN_TOKEN = process.env.NEW_API_ADMIN_TOKEN || "";
+// new-api admin auth requires BOTH the access token (Authorization) and the matching
+// user id (New-Api-User header). The system access token belongs to user id 1.
+const NEW_API_USER_ID = process.env.NEW_API_USER_ID?.trim() || "1";
 // Channels resolved by NAME (substring) so emoji renames don't break config.
 const GRANT_LOG_CHANNEL_NAME =
   process.env.GRANT_LOG_CHANNEL?.trim() || "grants-log";
@@ -74,7 +77,8 @@ export class GrantService {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${NEW_API_ADMIN_TOKEN}`,
+        Authorization: NEW_API_ADMIN_TOKEN,
+        "New-Api-User": NEW_API_USER_ID,
       },
       body: JSON.stringify({
         discord_id: params.targetDiscordId,
