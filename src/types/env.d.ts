@@ -20,9 +20,6 @@ interface FeatureBotEnvironment {
   STATUS_ROLES: string;
   LEVEL_ROLES: string;
 
-  // Behavior control
-  SHOULD_USER_LEVEL_UP: string;
-
   // Tickets + bug reports (channel NAMES / slugs, matched by substring)
   TICKET_CATEGORY: string;
   TICKET_LOG_CHANNEL: string;
