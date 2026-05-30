@@ -6,6 +6,7 @@ import { bot } from "@/main";
 import type { GrantResult, GrantSourceType } from "@/types";
 import {
   ChannelType,
+  type Guild,
   type GuildMember,
   type PartialGuildMember,
   type TextChannel,
@@ -14,6 +15,7 @@ import {
 const NEW_API_URL = process.env.NEW_API_URL?.replace(/\/$/, "") || "";
 const NEW_API_ADMIN_TOKEN = process.env.NEW_API_ADMIN_TOKEN || "";
 const GRANT_LOG_CHANNEL = process.env.GRANT_LOG_CHANNEL?.trim() || "";
+const BOOST_CHANNEL = process.env.BOOST_CHANNEL?.trim() || "";
 const BOOST_GRANT_QUOTA = parseInt(process.env.BOOST_GRANT_QUOTA || "0", 10);
 
 export class GrantService {
@@ -141,15 +143,42 @@ export class GrantService {
         grantedByDiscordId: "system",
       });
 
-      if (!result.linked) {
+      if (result.linked) {
+        await this.postBoostChannel(
+          newMember.guild,
+          `${newMember} boosted the server and earned **${BOOST_GRANT_QUOTA}** balance. Thank you!`,
+        );
+      } else {
         await newMember
           .send(
             `Thanks for boosting! ${this.linkPrompt()} Once linked, ping a mod to receive your boost reward.`,
           )
           .catch(() => {});
+        await this.postBoostChannel(
+          newMember.guild,
+          `${newMember} boosted the server! Link your Discord on unorouter to claim your boost reward.`,
+        );
       }
     } catch (e) {
       botLogger.error("Boost grant failed", { error: String(e) });
+    }
+  }
+
+  private static async postBoostChannel(
+    guild: Guild,
+    content: string,
+  ): Promise<void> {
+    if (!BOOST_CHANNEL) return;
+    try {
+      const channel = await guild.channels.fetch(BOOST_CHANNEL).catch(() => null);
+      if (channel?.type === ChannelType.GuildText) {
+        await (channel as TextChannel).send({
+          content,
+          allowedMentions: { users: [] },
+        });
+      }
+    } catch (e) {
+      botLogger.error("Boost channel post failed", { error: String(e) });
     }
   }
 }

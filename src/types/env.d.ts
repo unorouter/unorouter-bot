@@ -41,6 +41,7 @@ interface FeatureBotEnvironment {
   NEW_API_ADMIN_TOKEN: string;
   GRANT_LOG_CHANNEL: string;
   BOOST_GRANT_QUOTA: string;
+  BOOST_CHANNEL: string;
 
   // Branding
   BOT_NAME: string;
