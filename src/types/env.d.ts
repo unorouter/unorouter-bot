@@ -51,9 +51,6 @@ interface FeatureBotEnvironment {
   // Branding
   BOT_NAME: string;
   WEBSITE_URL: string;
-  DISCORD_INVITE: string;
-  CHAT_SYSTEM_PROMPT_OVERRIDE: string;
-  BOT_ICON: string;
 }
 
 interface BotEnvironment extends CoreBotEnvironment, FeatureBotEnvironment {}

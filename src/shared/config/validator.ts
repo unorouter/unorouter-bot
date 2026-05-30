@@ -69,11 +69,6 @@ export class ConfigValidator {
       required: false,
       feature: "Balance Grants (new-api)",
     },
-    {
-      key: "BOT_ICON",
-      required: false,
-      feature: "Custom Bot Icon",
-    },
   ];
 
   public static validateConfig(): void {

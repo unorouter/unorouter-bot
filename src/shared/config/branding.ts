@@ -3,12 +3,10 @@
 export const BOT_NAME = process.env.BOT_NAME?.trim() || "unorouter";
 export const WEBSITE_URL =
   process.env.WEBSITE_URL?.trim() || "https://unorouter.ai";
-export const DISCORD_INVITE = process.env.DISCORD_INVITE?.trim() || "";
 
 export const RED_COLOR = 0xff0000;
 export const YELLOW_COLOR = 0xffaa00;
 export const GREEN_COLOR = 0x57f287;
-export const BOT_ICON = process.env.BOT_ICON?.trim() || "";
 
 // Trigger the AI when a message starts with the bot's name (e.g. "unorouter help me").
 // null when BOT_NAME is empty so callers can skip the replace.

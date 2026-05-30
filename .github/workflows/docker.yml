@@ -58,8 +58,6 @@ jobs:
 
           echo BOT_NAME=${{ secrets.BOT_NAME }} >> .env
           echo WEBSITE_URL=${{ secrets.WEBSITE_URL }} >> .env
-          echo DISCORD_INVITE=${{ secrets.DISCORD_INVITE }} >> .env
-          echo BOT_ICON=${{ secrets.BOT_ICON }} >> .env
 
           echo POSTHOG_KEY=${{ secrets.POSTHOG_KEY }} >> .env
 
