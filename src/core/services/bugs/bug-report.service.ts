@@ -9,19 +9,23 @@ import {
   type ThreadChannel,
 } from "discord.js";
 
-const BUG_REPORT_FORUM_CHANNEL =
-  process.env.BUG_REPORT_FORUM_CHANNEL?.trim() || "";
+// Forum matched by NAME (substring) so emoji renames don't break config.
+const BUG_REPORT_FORUM_NAME =
+  process.env.BUG_REPORT_FORUM_CHANNEL?.trim() || "bug-reports";
+
+function normalize(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
 
 export class BugReportService {
   static isForumConfigured(): boolean {
-    return Boolean(BUG_REPORT_FORUM_CHANNEL);
+    return Boolean(BUG_REPORT_FORUM_NAME);
   }
 
   static isBugThread(thread: ThreadChannel): boolean {
-    return (
-      this.isForumConfigured() &&
-      thread.parentId === BUG_REPORT_FORUM_CHANNEL
-    );
+    const parentName = thread.parent?.name;
+    if (!parentName) return false;
+    return normalize(parentName).includes(normalize(BUG_REPORT_FORUM_NAME));
   }
 
   static buildControls(): ActionRowBuilder<ButtonBuilder> {

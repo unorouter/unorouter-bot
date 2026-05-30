@@ -2,20 +2,21 @@ import { db } from "@/lib/db";
 import { grantLog } from "@/lib/db-schema";
 import { botLogger } from "@/lib/telemetry";
 import { WEBSITE_URL } from "@/shared/config/branding";
+import { findTextChannel } from "@/shared/utils/channel.utils";
 import { bot } from "@/main";
 import type { GrantResult, GrantSourceType } from "@/types";
 import {
-  ChannelType,
   type Guild,
   type GuildMember,
   type PartialGuildMember,
-  type TextChannel,
 } from "discord.js";
 
 const NEW_API_URL = process.env.NEW_API_URL?.replace(/\/$/, "") || "";
 const NEW_API_ADMIN_TOKEN = process.env.NEW_API_ADMIN_TOKEN || "";
-const GRANT_LOG_CHANNEL = process.env.GRANT_LOG_CHANNEL?.trim() || "";
-const BOOST_CHANNEL = process.env.BOOST_CHANNEL?.trim() || "";
+// Channels resolved by NAME (substring) so emoji renames don't break config.
+const GRANT_LOG_CHANNEL_NAME =
+  process.env.GRANT_LOG_CHANNEL?.trim() || "grants-log";
+const BOOST_CHANNEL_NAME = process.env.BOOST_CHANNEL?.trim() || "boosters";
 const BOOST_GRANT_QUOTA = parseInt(process.env.BOOST_GRANT_QUOTA || "0", 10);
 
 export class GrantService {
@@ -108,18 +109,16 @@ export class GrantService {
     quota: number,
     reason: string,
   ): Promise<void> {
-    if (!GRANT_LOG_CHANNEL) return;
-    try {
-      const channel = await bot.channels.fetch(GRANT_LOG_CHANNEL);
-      if (channel?.type === ChannelType.GuildText) {
-        await (channel as TextChannel).send({
-          content: `Granted **${quota}** quota to <@${targetDiscordId}> - ${reason}`,
-          allowedMentions: { users: [], roles: [] },
-        });
-      }
-    } catch (e) {
-      botLogger.error("Grant announce failed", { error: String(e) });
-    }
+    const guild = bot.guilds.cache.first();
+    if (!guild) return;
+    const channel = findTextChannel(guild, GRANT_LOG_CHANNEL_NAME);
+    if (!channel) return;
+    await channel
+      .send({
+        content: `Granted **${quota}** quota to <@${targetDiscordId}> - ${reason}`,
+        allowedMentions: { users: [], roles: [] },
+      })
+      .catch((e) => botLogger.error("Grant announce failed", { error: String(e) }));
   }
 
   /**
@@ -168,17 +167,12 @@ export class GrantService {
     guild: Guild,
     content: string,
   ): Promise<void> {
-    if (!BOOST_CHANNEL) return;
-    try {
-      const channel = await guild.channels.fetch(BOOST_CHANNEL).catch(() => null);
-      if (channel?.type === ChannelType.GuildText) {
-        await (channel as TextChannel).send({
-          content,
-          allowedMentions: { users: [] },
-        });
-      }
-    } catch (e) {
-      botLogger.error("Boost channel post failed", { error: String(e) });
-    }
+    const channel = findTextChannel(guild, BOOST_CHANNEL_NAME);
+    if (!channel) return;
+    await channel
+      .send({ content, allowedMentions: { users: [] } })
+      .catch((e) =>
+        botLogger.error("Boost channel post failed", { error: String(e) }),
+      );
   }
 }

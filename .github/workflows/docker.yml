@@ -42,7 +42,7 @@ jobs:
           echo IS_CONSTRAINED_TO_BOT_CHANNEL=${{ secrets.IS_CONSTRAINED_TO_BOT_CHANNEL }} >> .env
           echo SHOULD_USER_LEVEL_UP=${{ secrets.SHOULD_USER_LEVEL_UP }} >> .env
 
-          echo TICKET_CATEGORY_ID=${{ secrets.TICKET_CATEGORY_ID }} >> .env
+          echo TICKET_CATEGORY=${{ secrets.TICKET_CATEGORY }} >> .env
           echo TICKET_LOG_CHANNEL=${{ secrets.TICKET_LOG_CHANNEL }} >> .env
           echo BUG_REPORT_FORUM_CHANNEL=${{ secrets.BUG_REPORT_FORUM_CHANNEL }} >> .env
 

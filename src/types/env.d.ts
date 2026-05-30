@@ -31,8 +31,8 @@ interface FeatureBotEnvironment {
   IS_CONSTRAINED_TO_BOT_CHANNEL: string;
   SHOULD_USER_LEVEL_UP: string;
 
-  // Tickets + bug reports
-  TICKET_CATEGORY_ID: string;
+  // Tickets + bug reports (channel NAMES / slugs, matched by substring)
+  TICKET_CATEGORY: string;
   TICKET_LOG_CHANNEL: string;
   BUG_REPORT_FORUM_CHANNEL: string;
 

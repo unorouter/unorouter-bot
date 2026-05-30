@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { ticket, ticketMessage } from "@/lib/db-schema";
 import { botLogger } from "@/lib/telemetry";
 import { STAFF_ROLES } from "@/shared/config/roles";
+import { findCategory, findTextChannel } from "@/shared/utils/channel.utils";
 import { and, eq } from "drizzle-orm";
 import {
   ActionRowBuilder,
@@ -18,8 +19,10 @@ import {
   type TextChannel,
 } from "discord.js";
 
-const TICKET_CATEGORY_ID = process.env.TICKET_CATEGORY_ID?.trim() || "";
-const TICKET_LOG_CHANNEL = process.env.TICKET_LOG_CHANNEL?.trim() || "";
+// Channels resolved by NAME (substring), not id, so emoji renames don't break config.
+const TICKET_CATEGORY_NAME = process.env.TICKET_CATEGORY?.trim() || "tickets";
+const TICKET_LOG_CHANNEL_NAME =
+  process.env.TICKET_LOG_CHANNEL?.trim() || "ticket-logs";
 
 export type TicketCategory = "support" | "bug";
 
@@ -42,7 +45,7 @@ export class TicketService {
   }
 
   /**
-   * Create a private ticket channel under TICKET_CATEGORY_ID, visible only to the
+   * Create a private ticket channel under the TICKETS category, visible only to the
    * opener + staff roles (and the bot). Returns the channel or null on failure.
    */
   static async open(
@@ -50,8 +53,11 @@ export class TicketService {
     opener: GuildMember,
     category: TicketCategory,
   ): Promise<TextChannel | null> {
-    if (!TICKET_CATEGORY_ID) {
-      botLogger.error("Ticket open failed: TICKET_CATEGORY_ID not configured");
+    const ticketsCategory = findCategory(guild, TICKET_CATEGORY_NAME);
+    if (!ticketsCategory) {
+      botLogger.error("Ticket open failed: TICKETS category not found", {
+        name: TICKET_CATEGORY_NAME,
+      });
       return null;
     }
 
@@ -90,7 +96,7 @@ export class TicketService {
       channel = await guild.channels.create({
         name: `${category}-${opener.user.username}`.slice(0, 90),
         type: ChannelType.GuildText,
-        parent: TICKET_CATEGORY_ID,
+        parent: ticketsCategory.id,
         permissionOverwrites: overwrites,
         reason: `Ticket opened by ${opener.user.tag}`,
       });
@@ -157,17 +163,13 @@ export class TicketService {
       .where(eq(ticket.id, row.id));
 
     const transcript = await this.buildTranscript(row.id, channel.name);
-    if (TICKET_LOG_CHANNEL) {
-      const logChannel = await channel.guild.channels
-        .fetch(TICKET_LOG_CHANNEL)
-        .catch(() => null);
-      if (logChannel?.type === ChannelType.GuildText) {
-        await (logChannel as TextChannel).send({
-          content: `Ticket #${row.id} (${row.category}) closed - opener <@${row.openerId}>`,
-          files: [transcript],
-          allowedMentions: { users: [] },
-        });
-      }
+    const logChannel = findTextChannel(channel.guild, TICKET_LOG_CHANNEL_NAME);
+    if (logChannel) {
+      await logChannel.send({
+        content: `Ticket #${row.id} (${row.category}) closed - opener <@${row.openerId}>`,
+        files: [transcript],
+        allowedMentions: { users: [] },
+      });
     }
 
     await channel.delete(`Ticket #${row.id} closed`).catch(() => {});
