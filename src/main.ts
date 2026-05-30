@@ -42,6 +42,11 @@ bot.on("interactionCreate", (interaction) => {
   void bot.executeInteraction(interaction);
 });
 
+bot.on("messageCreate", (message) => {
+  if (!message.guild) return;
+  void bot.executeCommand(message);
+});
+
 const shutdown = async (signal: string) => {
   botLogger.info(`Received ${signal}, shutting down`);
   await shutdownTelemetry();
