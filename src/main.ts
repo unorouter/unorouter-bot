@@ -48,6 +48,14 @@ bot.on("messageCreate", (message) => {
   void bot.executeCommand(message);
 });
 
+// Never let a single failed interaction/handler take the whole bot down.
+process.on("unhandledRejection", (reason) => {
+  botLogger.error("Unhandled rejection", { error: String(reason) });
+});
+process.on("uncaughtException", (err) => {
+  botLogger.error("Uncaught exception", { error: String(err) });
+});
+
 const shutdown = async (signal: string) => {
   botLogger.info(`Received ${signal}, shutting down`);
   await shutdownTelemetry();

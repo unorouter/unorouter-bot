@@ -1,4 +1,9 @@
-import { isStaff, safeDeferReply, safeEditReply } from "@/core/utils/command.utils";
+import {
+  isStaff,
+  purgeOwnPanels,
+  safeDeferReply,
+  safeEditReply,
+} from "@/core/utils/command.utils";
 import { BOT_NAME, WEBSITE_URL } from "@/shared/config/branding";
 import {
   ActionRowBuilder,
@@ -56,7 +61,15 @@ export class ClaimPanelCommand {
         .setStyle(ButtonStyle.Success),
     );
 
-    await (channel as TextChannel).send({ embeds: [embed], components: [row] });
-    await safeEditReply(interaction, "Claim panel posted.");
+    try {
+      await purgeOwnPanels(channel as TextChannel, "claim_connect");
+      await (channel as TextChannel).send({ embeds: [embed], components: [row] });
+      await safeEditReply(interaction, "Claim panel posted.");
+    } catch (err) {
+      await safeEditReply(
+        interaction,
+        `Could not post the panel: ${(err as Error).message}. Make sure I can View + Send Messages here.`,
+      );
+    }
   }
 }

@@ -18,39 +18,39 @@ jobs:
 
       - name: Create env file
         run: |
-          echo TOKEN=${{ secrets.TOKEN }} > .env
+          echo TOKEN="${{ secrets.TOKEN }}" > .env
 
-          echo POSTGRES_USER=${{ secrets.POSTGRES_USER }} >> .env
-          echo POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} >> .env
-          echo POSTGRES_HOST=${{ secrets.POSTGRES_HOST }} >> .env
-          echo POSTGRES_DB=${{ secrets.POSTGRES_DB }} >> .env
+          echo POSTGRES_USER="${{ secrets.POSTGRES_USER }}" >> .env
+          echo POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}" >> .env
+          echo POSTGRES_HOST="${{ secrets.POSTGRES_HOST }}" >> .env
+          echo POSTGRES_DB="${{ secrets.POSTGRES_DB }}" >> .env
 
-          echo GUILD_IDS=${{ secrets.GUILD_IDS }} >> .env
+          echo GUILD_IDS="${{ secrets.GUILD_IDS }}" >> .env
 
-          echo GOOGLE_GENERATIVE_AI_API_KEY=${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }} >> .env
-          echo KLIPY_API_KEY=${{ secrets.KLIPY_API_KEY }} >> .env
+          echo GOOGLE_GENERATIVE_AI_API_KEY="${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}" >> .env
+          echo KLIPY_API_KEY="${{ secrets.KLIPY_API_KEY }}" >> .env
 
-          echo STAFF_ROLES=${{ secrets.STAFF_ROLES }} >> .env
-          echo STATUS_ROLES=${{ secrets.STATUS_ROLES }} >> .env
-          echo LEVEL_ROLES=${{ secrets.LEVEL_ROLES }} >> .env
+          echo STAFF_ROLES="${{ secrets.STAFF_ROLES }}" >> .env
+          echo STATUS_ROLES="${{ secrets.STATUS_ROLES }}" >> .env
+          echo LEVEL_ROLES="${{ secrets.LEVEL_ROLES }}" >> .env
 
-          echo TICKET_CATEGORY=${{ secrets.TICKET_CATEGORY }} >> .env
-          echo TICKET_LOG_CHANNEL=${{ secrets.TICKET_LOG_CHANNEL }} >> .env
-          echo BUG_REPORT_FORUM_CHANNEL=${{ secrets.BUG_REPORT_FORUM_CHANNEL }} >> .env
+          echo TICKET_CATEGORY="${{ secrets.TICKET_CATEGORY }}" >> .env
+          echo TICKET_LOG_CHANNEL="${{ secrets.TICKET_LOG_CHANNEL }}" >> .env
+          echo BUG_REPORT_FORUM_CHANNEL="${{ secrets.BUG_REPORT_FORUM_CHANNEL }}" >> .env
 
-          echo NEW_API_URL=${{ secrets.NEW_API_URL }} >> .env
-          echo NEW_API_ADMIN_TOKEN=${{ secrets.NEW_API_ADMIN_TOKEN }} >> .env
-          echo NEW_API_USER_ID=${{ secrets.NEW_API_USER_ID }} >> .env
-          echo GRANT_LOG_CHANNEL=${{ secrets.GRANT_LOG_CHANNEL }} >> .env
-          echo QUOTA_PER_DOLLAR=${{ secrets.QUOTA_PER_DOLLAR }} >> .env
-          echo BOOST_GRANT_DOLLARS=${{ secrets.BOOST_GRANT_DOLLARS }} >> .env
-          echo BOOST_CHANNEL=${{ secrets.BOOST_CHANNEL }} >> .env
-          echo CONNECT_GRANT_DOLLARS=${{ secrets.CONNECT_GRANT_DOLLARS }} >> .env
-          echo CONNECTED_ROLE=${{ secrets.CONNECTED_ROLE }} >> .env
+          echo NEW_API_URL="${{ secrets.NEW_API_URL }}" >> .env
+          echo NEW_API_ADMIN_TOKEN="${{ secrets.NEW_API_ADMIN_TOKEN }}" >> .env
+          echo NEW_API_USER_ID="${{ secrets.NEW_API_USER_ID }}" >> .env
+          echo GRANT_LOG_CHANNEL="${{ secrets.GRANT_LOG_CHANNEL }}" >> .env
+          echo QUOTA_PER_DOLLAR="${{ secrets.QUOTA_PER_DOLLAR }}" >> .env
+          echo BOOST_GRANT_DOLLARS="${{ secrets.BOOST_GRANT_DOLLARS }}" >> .env
+          echo BOOST_CHANNEL="${{ secrets.BOOST_CHANNEL }}" >> .env
+          echo CONNECT_GRANT_DOLLARS="${{ secrets.CONNECT_GRANT_DOLLARS }}" >> .env
+          echo CONNECTED_ROLE="${{ secrets.CONNECTED_ROLE }}" >> .env
 
-          echo BOT_NAME=${{ secrets.BOT_NAME }} >> .env
-          echo WEBSITE_URL=${{ secrets.WEBSITE_URL }} >> .env
-          echo BOT_ACTIVITY=${{ secrets.BOT_ACTIVITY }} >> .env
+          echo BOT_NAME="${{ secrets.BOT_NAME }}" >> .env
+          echo WEBSITE_URL="${{ secrets.WEBSITE_URL }}" >> .env
+          echo BOT_ACTIVITY="${{ secrets.BOT_ACTIVITY }}" >> .env
 
 
       - name: Docker run

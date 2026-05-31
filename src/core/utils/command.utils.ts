@@ -1,11 +1,39 @@
 import { STAFF_ROLES } from "@/shared/config/roles";
-import { GuildMember } from "discord.js";
+import { GuildMember, type TextChannel } from "discord.js";
 import type {
   CommandInteraction,
   InteractionDeferReplyOptions,
   InteractionEditReplyOptions,
   MessagePayload,
 } from "discord.js";
+
+/**
+ * Upsert a panel: delete the bot's previous panel messages (identified by a button
+ * custom id) in this channel so re-running a /*-panel command never stacks duplicates.
+ */
+export async function purgeOwnPanels(
+  channel: TextChannel,
+  customId: string,
+): Promise<void> {
+  const me = channel.client.user?.id;
+  if (!me) return;
+  const recent = await channel.messages.fetch({ limit: 50 }).catch(() => null);
+  if (!recent) return;
+  const hasCustomId = (component: unknown): boolean => {
+    const c = component as {
+      customId?: string;
+      components?: unknown[];
+    };
+    if (c.customId === customId) return true;
+    return Array.isArray(c.components) && c.components.some(hasCustomId);
+  };
+  const mine = recent.filter(
+    (m) => m.author.id === me && m.components.some(hasCustomId),
+  );
+  for (const m of mine.values()) {
+    await m.delete().catch(() => {});
+  }
+}
 
 // Discord API error codes for missing resources
 export const UNKNOWN_MESSAGE = 10008;
