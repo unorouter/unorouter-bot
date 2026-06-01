@@ -11,14 +11,10 @@ export const LEVEL_ROLES =
 
 export const EVERYONE = "@everyone";
 
-// Status role names (by convention: Verified, VoiceOnly, Jail)
+// Status role names (by convention: Verified, Jail)
 export const VERIFIED =
   STATUS_ROLES.find((r) => r?.toLowerCase() === "verified") ||
   STATUS_ROLES?.[0];
 
-export const VOICE_ONLY =
-  STATUS_ROLES.find((r) => r?.toLowerCase() === "voiceonly") ||
-  STATUS_ROLES?.[1];
-
 export const JAIL =
-  STATUS_ROLES.find((r) => r?.toLowerCase() === "jail") || STATUS_ROLES?.[2];
+  STATUS_ROLES.find((r) => r?.toLowerCase() === "jail") || STATUS_ROLES?.[1];

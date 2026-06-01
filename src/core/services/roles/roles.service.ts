@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { memberRole, memberMessages } from "@/lib/db-schema";
 import { and, count, eq, ne } from "drizzle-orm";
 import { LEVEL_LIST } from "@/shared/config/levels";
-import { JAIL, LEVEL_ROLES, STATUS_ROLES, VOICE_ONLY } from "@/shared/config/roles";
+import { JAIL, LEVEL_ROLES, STATUS_ROLES } from "@/shared/config/roles";
 import type { UpdateDbRolesArgs } from "@/types";
 import { Guild, Role } from "discord.js";
 
@@ -18,21 +18,11 @@ export class RolesService {
       return;
 
     if (args.newRoles.length > args.oldRoles.length) {
-      // Check for restricted roles (JAIL or VOICE_ONLY)
       const jailId = args.guildRoles.find((role) => role.name === JAIL)?.id;
-      const voiceOnlyId = args.guildRoles.find(
-        (role) => role.name === VOICE_ONLY,
-      )?.id;
-
       const jailDbRole = args.memberDbRoles.find(
         (dbRole) => dbRole.roleId === jailId,
       );
-      const voiceOnlyDbRole = args.memberDbRoles.find(
-        (dbRole) => dbRole.roleId === voiceOnlyId,
-      );
-
-      // If user has JAIL or VOICE_ONLY role, don't add new roles
-      if (jailDbRole || voiceOnlyDbRole) return;
+      if (jailDbRole) return;
 
       // add or update new role
       const newAddedRole = args.newRoles.filter(
@@ -84,44 +74,28 @@ export class RolesService {
       args.oldMember.pending ||
       args.newMember.pending
     ) {
-      // Find restricted roles (JAIL or VOICE_ONLY)
-      const restrictedRoleNames = [JAIL, VOICE_ONLY];
-      const dbRestrictedRole = args.memberDbRoles.find(
+      const jailDbRole = args.memberDbRoles.find(
         (dbRole) =>
           dbRole.roleId ===
-          args.guildRoles.find((role) =>
-            restrictedRoleNames.includes(role.name),
-          )?.id,
+          args.guildRoles.find((role) => role.name === JAIL)?.id,
       );
 
-      if (dbRestrictedRole) {
-        const restrictedRoleName = args.guildRoles.find(
-          (role) => role.id === dbRestrictedRole.roleId,
-        )?.name;
-
-        // Remove all roles except the restricted one
+      if (jailDbRole) {
         for (const role of args.newMember.roles.cache.values()) {
-          if (role.name === restrictedRoleName) continue;
+          if (role.name === JAIL) continue;
           await args.newMember.roles.remove(role).catch(() => {});
         }
 
-        // Add restricted role if not on user
-        if (
-          !args.newMember.roles.cache.some(
-            (role) => role.name === restrictedRoleName,
-          )
-        )
-          args.newMember.roles.add(dbRestrictedRole.roleId).catch(() => {});
+        if (!args.newMember.roles.cache.some((role) => role.name === JAIL))
+          args.newMember.roles.add(jailDbRole.roleId).catch(() => {});
 
         db.delete(memberRole).where(
           and(
             eq(memberRole.memberId, args.newMember.id),
             eq(memberRole.guildId, args.newMember.guild.id),
-            ne(memberRole.roleId, dbRestrictedRole.roleId),
+            ne(memberRole.roleId, jailDbRole.roleId),
           ),
         );
-
-        return;
       }
 
       return;
@@ -134,15 +108,14 @@ export class RolesService {
     const oldRoles = args.oldRoles.map((role) => role.name);
     const newAddedRole = newRoles.find((role) => !oldRoles.includes(role))!;
 
-    // Handle JAIL or VOICE_ONLY role addition
-    if (newAddedRole === JAIL || newAddedRole === VOICE_ONLY) {
-      const restrictedRole = args.newMember.roles.cache.find(
-        (role) => role.name === newAddedRole,
+    if (newAddedRole === JAIL) {
+      const jailRole = args.newMember.roles.cache.find(
+        (role) => role.name === JAIL,
       );
 
       args.newMember.roles.cache.forEach(
         (role) =>
-          role.name !== newAddedRole &&
+          role.name !== JAIL &&
           args.newMember.roles.remove(role).catch(() => {}),
       );
 
@@ -150,7 +123,7 @@ export class RolesService {
         and(
           eq(memberRole.memberId, args.newMember.id),
           eq(memberRole.guildId, args.newMember.guild.id),
-          ne(memberRole.roleId, restrictedRole?.id ?? ""),
+          ne(memberRole.roleId, jailRole?.id ?? ""),
         ),
       );
     }

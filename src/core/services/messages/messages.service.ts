@@ -4,7 +4,7 @@ import { memberMessages, memberGuild } from "@/lib/db-schema";
 import { and, count, eq } from "drizzle-orm";
 import { LEVEL_LIST, levelUpMessage } from "@/shared/config/levels";
 import { SHOULD_USER_LEVEL_UP } from "@/shared/config/features";
-import { JAIL, VOICE_ONLY } from "@/shared/config/roles";
+import { JAIL } from "@/shared/config/roles";
 import {
   Collection,
   FetchMessagesOptions,
@@ -57,9 +57,7 @@ export class MessagesService {
     if (!SHOULD_USER_LEVEL_UP || LEVEL_LIST.length === 0) return;
 
     const memberInJail = message.member?.roles.cache.some(
-      (role) =>
-        JAIL === role.name.toLowerCase() ||
-        VOICE_ONLY === role.name.toLowerCase(),
+      (role) => JAIL === role.name.toLowerCase(),
     );
 
     if (memberInJail) return;

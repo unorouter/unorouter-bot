@@ -5,8 +5,6 @@ export const WEBSITE_URL =
   process.env.WEBSITE_URL?.trim() || "https://unorouter.ai";
 
 export const RED_COLOR = 0xff0000;
-export const YELLOW_COLOR = 0xffaa00;
-export const GREEN_COLOR = 0x57f287;
 
 // Trigger the AI when a message starts with the bot's name (e.g. "<BOT_NAME> help me").
 // null when BOT_NAME is empty so callers can skip the replace.
