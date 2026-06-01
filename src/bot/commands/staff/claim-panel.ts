@@ -48,7 +48,7 @@ export class ClaimPanelCommand {
         [
           `Connect your Discord to your ${BOT_NAME} account to unlock the linked role and claim your one-time welcome bonus.`,
           "",
-          `**How:** open ${WEBSITE_URL} -> Settings -> connect Discord, then click the button below.`,
+          `**How:** connect Discord at ${WEBSITE_URL}/settings, then click the button below.`,
         ].join("\n"),
       )
       .setColor(0x9b59ff);
