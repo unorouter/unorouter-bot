@@ -20,14 +20,14 @@ import {
 import { Discord, Slash } from "discordx";
 
 @Discord()
-export class ClaimPanelCommand {
+export class VerifyPanelCommand {
   @Slash({
-    name: "claim-panel",
-    description: "Post the link-and-claim panel in this channel",
+    name: "verify-panel",
+    description: "Post the verify-and-claim panel in this channel",
     dmPermission: false,
     defaultMemberPermissions: PermissionFlagsBits.ManageGuild,
   })
-  async claimPanel(interaction: CommandInteraction) {
+  async verifyPanel(interaction: CommandInteraction) {
     if (!(await safeDeferReply(interaction, { flags: [MessageFlags.Ephemeral] })))
       return;
 
@@ -42,13 +42,15 @@ export class ClaimPanelCommand {
       return;
     }
 
+    const settingsLink = `${WEBSITE_URL}/settings?redirect=/settings`;
+
     const embed = new EmbedBuilder()
       .setTitle(`Link your ${BOT_NAME} account`)
       .setDescription(
         [
           `Connect your Discord to your ${BOT_NAME} account to unlock the linked role and claim your one-time welcome bonus.`,
           "",
-          `**How:** connect Discord at ${WEBSITE_URL}/settings, then click the button below.`,
+          `**How:** [connect Discord in your account settings](${settingsLink}), then click the button below.`,
         ].join("\n"),
       )
       .setColor(0x9b59ff);
@@ -64,7 +66,7 @@ export class ClaimPanelCommand {
     try {
       await purgeOwnPanels(channel as TextChannel, "claim_connect");
       await (channel as TextChannel).send({ embeds: [embed], components: [row] });
-      await safeEditReply(interaction, "Claim panel posted.");
+      await safeEditReply(interaction, "Verify panel posted.");
     } catch (err) {
       await safeEditReply(
         interaction,

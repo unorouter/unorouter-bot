@@ -1,7 +1,6 @@
 import type { InferSelectModel } from "drizzle-orm";
 import type { memberRole } from "@/lib/db-schema";
 import type {
-  APIEmbed,
   Collection,
   Guild,
   GuildMember,
@@ -11,9 +10,6 @@ import type {
 } from "discord.js";
 
 type MemberRole = InferSelectModel<typeof memberRole>;
-
-export type EmbedResult = { embed: APIEmbed } | { error: string };
-export type MessageResult = { message: string } | { error: string };
 
 // AI chat
 export interface AiChatResponse {

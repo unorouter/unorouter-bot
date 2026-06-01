@@ -14,7 +14,7 @@ const posthog =
 
 export const shutdownTelemetry = () => posthog?.shutdown();
 
-export function getLogger(name: string) {
+function makeLogger(name: string) {
   const emit = (
     level: "debug" | "info" | "warn" | "error",
     msg: string,
@@ -57,5 +57,4 @@ export function getLogger(name: string) {
 }
 
 const SERVICE_NAME = process.env.BOT_NAME?.trim() || "bot";
-export const botLogger = getLogger(`${SERVICE_NAME}-bot`);
-export const apiLogger = getLogger(`${SERVICE_NAME}-bot-api`);
+export const botLogger = makeLogger(`${SERVICE_NAME}-bot`);

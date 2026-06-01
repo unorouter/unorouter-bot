@@ -45,7 +45,7 @@ async function searchGifs(query: string, limit: number = 5): Promise<string[]> {
   }
 }
 
-export const gatherChannelContext = tool({
+const gatherChannelContext = tool({
   description:
     "Gather recent messages and user context from a specific channel when you need more conversation history to provide better responses.",
   inputSchema: z.object({
@@ -109,7 +109,7 @@ export const gatherChannelContext = tool({
   },
 });
 
-export const searchMemeGifs = tool({
+const searchMemeGifs = tool({
   description:
     "Search for and send a meme GIF to enhance your response with visual humor.",
   inputSchema: z.object({

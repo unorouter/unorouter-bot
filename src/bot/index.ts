@@ -6,7 +6,7 @@ import "./events/message-create";
 import "./events/thread-create";
 
 // Commands - Staff
-import "./commands/staff/claim-panel";
+import "./commands/staff/verify-panel";
 import "./commands/staff/grant";
 import "./commands/staff/ticket-panel";
 import "./commands/staff/verify-users";

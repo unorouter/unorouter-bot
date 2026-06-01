@@ -35,19 +35,9 @@ export async function purgeOwnPanels(
   }
 }
 
-// Discord API error codes for missing resources
-export const UNKNOWN_MESSAGE = 10008;
-export const UNKNOWN_CHANNEL = 10003;
-export const UNKNOWN_INTERACTION = 10062;
-
-export function isDiscordNotFoundError(error: unknown): boolean {
-  const code = (error as { code?: number }).code;
-  return (
-    code === UNKNOWN_MESSAGE ||
-    code === UNKNOWN_CHANNEL ||
-    code === UNKNOWN_INTERACTION
-  );
-}
+const UNKNOWN_MESSAGE = 10008;
+const UNKNOWN_CHANNEL = 10003;
+const UNKNOWN_INTERACTION = 10062;
 
 export async function safeDeferReply(
   interaction: CommandInteraction,
