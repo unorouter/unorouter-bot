@@ -130,7 +130,7 @@ export class GrantService {
   }
 
   static linkPrompt(): string {
-    return `You need to link your Discord account first: <${WEBSITE_URL}/settings?redirect=/settings> - then try again.`;
+    return `You need to [link your Discord account](${WEBSITE_URL}/settings?redirect=/settings) first - then try again.`;
   }
 
   /**
