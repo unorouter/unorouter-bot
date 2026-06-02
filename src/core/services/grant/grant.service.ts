@@ -200,9 +200,13 @@ export class GrantService {
     if (!guild) return;
     const channel = findTextChannel(guild, GRANT_LOG_CHANNEL_NAME);
     if (!channel) return;
+    const dollars = QUOTA_PER_DOLLAR > 0 ? quota / QUOTA_PER_DOLLAR : 0;
+    const dollarLabel = Number.isInteger(dollars)
+      ? `$${dollars}`
+      : `$${dollars.toFixed(2)}`;
     await channel
       .send({
-        content: `Granted **${quota}** quota to <@${targetDiscordId}> - ${reason}`,
+        content: `Granted **${dollarLabel}** (${quota} quota) to <@${targetDiscordId}> - ${reason}`,
         allowedMentions: { users: [], roles: [] },
       })
       .catch((e) => botLogger.error("Grant announce failed", { error: String(e) }));
