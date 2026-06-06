@@ -55,35 +55,45 @@ Discord's webpack chunk push trick. Returns a 72-char user token (NOT a bot toke
 
 ```js
 let token;
-webpackChunkdiscord_app.push([[Math.random()], {}, (req) => {
-  for (const id in req.c) {
-    const mod = req.c[id]?.exports;
-    if (!mod) continue;
-    for (const c of [mod, mod.default, mod.Z, mod.ZP]) {
-      try {
-        if (c?.getToken) {
-          const v = c.getToken();
-          if (typeof v === "string" && v.length > 20) token = v;
-        }
-      } catch {}
+webpackChunkdiscord_app.push([
+  [Math.random()],
+  {},
+  (req) => {
+    for (const id in req.c) {
+      const mod = req.c[id]?.exports;
+      if (!mod) continue;
+      for (const c of [mod, mod.default, mod.Z, mod.ZP]) {
+        try {
+          if (c?.getToken) {
+            const v = c.getToken();
+            if (typeof v === "string" && v.length > 20) token = v;
+          }
+        } catch {}
+      }
     }
-  }
-}]);
+  },
+]);
 // `token` is now usable as Authorization header on /api/v9/*
 ```
 
-### Common operations (PATCH/POST/DELETE /api/v9/*)
+### Common operations (PATCH/POST/DELETE /api/v9/\*)
 
 All require the page to be `discord.com/channels/<guildId>/<channelId>` (or any logged-in Discord page) before the script runs.
 
 **Find channel by name:**
+
 ```js
-const r = await fetch(`/api/v9/guilds/${guildId}/channels`, { headers: { Authorization: token } });
+const r = await fetch(`/api/v9/guilds/${guildId}/channels`, {
+  headers: { Authorization: token },
+});
 const arr = await r.json();
-arr.filter(c => /verify/i.test(c.name)).map(c => ({ id: c.id, name: c.name, type: c.type }));
+arr
+  .filter((c) => /verify/i.test(c.name))
+  .map((c) => ({ id: c.id, name: c.name, type: c.type }));
 ```
 
 **Rename channel:**
+
 ```js
 fetch(`/api/v9/channels/${channelId}`, {
   method: "PATCH",
@@ -93,11 +103,16 @@ fetch(`/api/v9/channels/${channelId}`, {
 ```
 
 **Delete channel** (irreversible — confirm with user first):
+
 ```js
-fetch(`/api/v9/channels/${channelId}`, { method: "DELETE", headers: { Authorization: token } });
+fetch(`/api/v9/channels/${channelId}`, {
+  method: "DELETE",
+  headers: { Authorization: token },
+});
 ```
 
 **Post a message:**
+
 ```js
 fetch(`/api/v9/channels/${channelId}/messages`, {
   method: "POST",
@@ -107,6 +122,7 @@ fetch(`/api/v9/channels/${channelId}/messages`, {
 ```
 
 **Edit a message YOU AUTHORED** (user token can only PATCH your own messages, NOT the bot's):
+
 ```js
 fetch(`/api/v9/channels/${channelId}/messages/${messageId}`, {
   method: "PATCH",
@@ -118,13 +134,20 @@ fetch(`/api/v9/channels/${channelId}/messages/${messageId}`, {
 To replace a bot-authored panel embed, re-run the bot's `/verify-panel` (or equivalent) command. `purgeOwnPanels` in [src/core/utils/command.utils.ts](src/core/utils/command.utils.ts) deletes the bot's previous post in the channel before reposting, so re-running the command is idempotent.
 
 **Pin a message:**
+
 ```js
-fetch(`/api/v9/channels/${channelId}/pins/${messageId}`, { method: "PUT", headers: { Authorization: token } });
+fetch(`/api/v9/channels/${channelId}/pins/${messageId}`, {
+  method: "PUT",
+  headers: { Authorization: token },
+});
 ```
 
 **List server's registered slash commands** (resolve `verify-panel` etc. to command id):
+
 ```js
-fetch(`/api/v9/applications/${botAppId}/guilds/${guildId}/commands`, { headers: { Authorization: token } });
+fetch(`/api/v9/applications/${botAppId}/guilds/${guildId}/commands`, {
+  headers: { Authorization: token },
+});
 ```
 
 ### Trigger a bot slash command without typing
@@ -159,6 +182,7 @@ ssh -o StrictHostKeyChecking=no don@152.53.135.101 "docker exec unorouter-bot ca
 `docker exec unorouter-bot env` shows only base process env. dotenvx-loaded vars are inside the Node process but not in `env` output — `cat /app/.env` is the source of truth.
 
 Postgres for new-api:
+
 ```bash
 ssh ... "docker exec unorouter-new-api-postgres psql -U newapi -d newapi -c \"SELECT id, username, discord_id FROM users WHERE discord_id <> '' LIMIT 10;\""
 ```
