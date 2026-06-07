@@ -253,3 +253,10 @@ MCP, not bot code.
 
 - **🔒│jail** `1510366698749038706` — isolation channel for the role/jail logic
   in `core/services/roles/`.
+
+### Partner servers (dedicated channel, server NOT ours)
+
+- **The AI Bunker** (guild `1223037722998865940`) to **♠️unorouter**
+  `1513243139064856697` — plain text channel we own on a friend's server. Carries
+  the promo intro + mirrored changelog entries. We post as user "Don" via Browser
+  MCP; no bot, no crosspost. See [RELEASE-POSTS.md](RELEASE-POSTS.md).
