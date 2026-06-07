@@ -49,6 +49,8 @@ src/lib/db-schema/                           drizzle schema: guild, member, memb
 
 Most server-admin tasks (rename channel, delete channel, edit pinned panel posts, post announcements) are NOT bot code. They go through the Discord web client via `mcp__chrome-devtools__*` tools. Brave runs with remote-debugging on port 9223; the chrome-devtools MCP attaches there.
 
+> **Shipping a release post?** See [RELEASE-POSTS.md](RELEASE-POSTS.md) for the end-to-end runbook: when to use changelog vs announcements vs blog, the post+publish+edit MCP scripts, and the full blog flow (registry + content + 18-locale translation fan-out).
+
 ### Get the user token (once per session)
 
 Discord's webpack chunk push trick. Returns a 72-char user token (NOT a bot token):
