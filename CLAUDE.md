@@ -196,3 +196,58 @@ ssh ... "docker exec unorouter-new-api-postgres psql -U newapi -d newapi -c \"SE
 - No barrel re-export files when splitting modules. Rewrite each importer.
 - Don't manually deploy to don. CI only.
 - Don't reset/regenerate new-api `SYSTEM_ACCESS_TOKEN` casually — every secret consumer (`NEW_API_ADMIN_TOKEN` here) breaks until re-set.
+
+## Server channels (UnoRouter, guild 1498300365001588746)
+
+Resolve by NAME substring, never hardcode IDs in code. IDs below are for fast
+navigation only (`discord.com/channels/1498300365001588746/<id>`). Layout grouped
+by category. The three pinned onboarding posts (information / announcements /
+changelog) are all authored by Don and edited in-place; update them via Browser
+MCP, not bot code.
+
+### 📢 INFORMATION (read-only, staff-posted)
+
+- **📌│information** `1509890163285950636` (Rules channel) — welcome + platform
+  overview. "Unified API gateway, 70+ AI models (OpenAI, Anthropic, Google)."
+  Links: dashboard (`/en/login`), docs (`/en/docs`), models (`/en/models`),
+  Discord guidelines. Single pinned post.
+- **📣│announcements** `1509891684282925216` (Announcement channel) — headline
+  pitch ("One API key, 70+ models, single OpenAI-compatible endpoint"). Sections:
+  Start here (models / pricing / docs / chat playground), Earn free balance
+  (verify `$1` one-time, boost `$1`/boost, bug-bounty up to `$50`), Channels
+  (help / feature-requests / model-requests / changelog).
+- **📝│changelog** `1509906155043029202` (Announcement channel) — "Latest first.
+  Major shipped changes only." Tracks bot + site releases (bot launch, verify
+  panel, boost auto-grant, bug-bounty forum, ticket system, deep-link login,
+  settings UI).
+- **🚀│boosters** `1510368497887084555` — boost reward surface ($1/boost
+  auto-grant).
+- **✅│verify** `1510752428440555704` — Discord-link verify panel; claim `$1`
+  one-time + linked role. Driven by `/verify-panel` + `claim_connect` interaction.
+
+### 💬 COMMUNITY
+
+- **💬│general** `1509888910732431490` — open chat.
+- **🗳️│feature-requests** `1509888593949102170` — product requests.
+- **🧠│model-requests** `1510746273135722507` — requests to add specific models.
+- **🤖│bot-commands** `1509889754894700637` — bot command usage.
+
+### 🛠️ SUPPORT
+
+- **🎫│create-ticket** `1510366683070595192` — opens a private per-request ticket
+  channel; staff grant balance from inside (`/ticket-panel`, `ticket_*`
+  interactions).
+- **🛡️│bug-bounty** `1510366688045170708` (Forum) — tiered rewards up to
+  `$50`/finding (`bug_*` interactions, `reward_modal`).
+
+### 📋 LOGS (staff/private)
+
+- **🛡️│moderator-only** `1509890163827019859`
+- **🌟│join-events** `1509907917803884554`
+- **📄│ticket-logs** `1510366691454882014`
+- **🎁│grants-log** `1510366694705594429` (grant.service announce target)
+
+### 🔒 PRISON
+
+- **🔒│jail** `1510366698749038706` — isolation channel for the role/jail logic
+  in `core/services/roles/`.
