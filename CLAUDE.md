@@ -1,6 +1,6 @@
 # CLAUDE.md — unorouter-bot
 
-Discord bot for unorouter.ai. discordx (decorators), drizzle + postgres-js, Google Gemini for AI chat. Deployed on don server via GitHub Actions only — never ship binaries manually.
+Discord bot for unorouter.com. discordx (decorators), drizzle + postgres-js, Google Gemini for AI chat. Deployed on don server via GitHub Actions only — never ship binaries manually.
 
 ## Stack
 
