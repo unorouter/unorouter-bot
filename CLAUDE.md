@@ -13,7 +13,7 @@ Discord bot for unorouter.com. discordx (decorators), drizzle + postgres-js, Goo
 
 ## Deploy
 
-GitHub Actions only. Workflow `.github/workflows/docker-prod.yml` builds + ships. Local `docker build` fine for verifying compile, never `docker save | ssh ... docker load`. Commit, push, watch `gh run list -R unorouter/unorouter-bot --limit 1`.
+GitHub Actions only. Workflow `.github/workflows/docker.yml` builds + ships (self-hosted runner on don: renders `.env` from repo secrets, `docker compose up -d --force-recreate --build`). Local `docker build` fine for verifying compile, never `docker save | ssh ... docker load`. Commit, push, watch `gh run list -R unorouter/unorouter-bot --limit 1`.
 
 Env vars live as GitHub repo secrets (`gh secret list -R unorouter/unorouter-bot`). When a secret value changes, set it AND push a trivial commit so the workflow re-renders `.env` into the container.
 
