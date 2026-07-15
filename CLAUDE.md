@@ -35,6 +35,24 @@ src/lib/telemetry.ts                         botLogger (PostHog + stdout)
 src/lib/db-schema/                           drizzle schema: guild, member, memberGuild, memberRole, memberMessages, ticket, ticketMessage, bugReport, grantLog
 ```
 
+### Boot (clientReady)
+
+Kept lean. `bootGuild(g)` runs per guild in parallel, in order: upsert guild row (FK parent) -> prime invite snapshot + warm member cache (parallel) -> replay vote-role holds -> refresh member-count channels. Then an hourly member-count interval + the webhook server. Heavy backfills (level rewards, invite backlog) are NOT on boot - they loop every member/guild, so they live in the staff `!verify` command instead. Run `!verify` once after a deploy for a full reconcile.
+
+### Member-count voice channels
+
+Locked voice channels named like `📊│members:` auto-update to the live non-bot count. Config `MEMBERS_COUNT_CHANNELS` (comma-separated NAME substrings, GitHub secret + rendered in `docker.yml`). `MemberDataService.updateMemberCount(guild)` renames each matching channel to `<name> <count>` on guildMemberAdd/Remove + on boot + hourly. Discord caps channel renames at 2/10min per channel.
+
+GOTCHA: for the bot to rename a locked channel it needs VIEW + MANAGE_CHANNELS on it. The bot's server role has MANAGE_CHANNELS globally, but a locked channel (deny CONNECT for @everyone) still blocked it until a **role overwrite** was added. Add the overwrite against the bot's GUILD ROLE id (type 0), NOT the app/client id as a member overwrite (type 1) - the app id is not the bot's member and the overwrite silently does nothing. After changing channel perms, RESTART the bot so discord.js re-caches the channel with the new overwrites, or it computes perms from the stale cache and keeps failing with `50001 Missing Access`.
+
+### `!verify` (staff prefix command)
+
+Full member reconcile, on demand: upsert every member into the DB, assign the Verified role (skip jailed), backfill any earned-but-unpaid level reward, and reconcile the invite backlog for the guild. Aliases: `!verify` (canonical), `!verify-user(s)`, `!verify-all`.
+
+### `/members` (slash command)
+
+Member overview: Users/Bots count, 30d/7d/24h memberflow, and a growth-chart PNG (QuickChart, built from live join dates - no DB history needed). `MemberDataService.memberFlowStats()` + `membersEmbed()`.
+
 ### Conventions
 
 - Channel resolution by NAME substring via `findTextChannel(guild, "verify")` etc. Never store Discord IDs in code. Emoji renames (`verify` → `✅│verify`) keep working.
