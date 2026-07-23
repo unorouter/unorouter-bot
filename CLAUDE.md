@@ -1,6 +1,6 @@
 # CLAUDE.md — unorouter-bot
 
-Discord bot for unorouter.com. discordx (decorators), drizzle + postgres-js, Google Gemini for AI chat. Deployed on don server via GitHub Actions only — never ship binaries manually.
+Discord bot for unorouter.com. discordx (decorators), drizzle + postgres-js, Google Gemini for AI chat. Runs on the k3s cluster (namespace `services`, deploy `unorouter-bot`); ships via GHCR image + ArgoCD, never manual binaries.
 
 ## Stack
 
@@ -13,9 +13,18 @@ Discord bot for unorouter.com. discordx (decorators), drizzle + postgres-js, Goo
 
 ## Deploy
 
-GitHub Actions only. Workflow `.github/workflows/docker.yml` builds + ships (self-hosted runner on don: renders `.env` from repo secrets, `docker compose up -d --force-recreate --build`). Local `docker build` fine for verifying compile, never `docker save | ssh ... docker load`. Commit, push, watch `gh run list -R unorouter/unorouter-bot --limit 1`.
+k3s + ArgoCD. `.github/workflows/ghcr.yml` (push to main, or `gh workflow run ghcr.yml`)
+builds the multi-arch image to `ghcr.io/unorouter/unorouter-bot:latest`. The k8s manifest
+(`infra/infra/services/bot.yaml`, image `:latest`) then needs a
+`kubectl -n services rollout restart deploy/unorouter-bot` to pull the new image (no image
+updater wired yet). ArgoCD owns the manifest itself. The old `docker.yml` (don self-hosted
+runner + `docker compose`) is DEAD - its push trigger was removed after the zombie-respawn
+incident; do not re-enable. Local `docker build` fine for verifying compile only.
 
-Env vars live as GitHub repo secrets (`gh secret list -R unorouter/unorouter-bot`). When a secret value changes, set it AND push a trivial commit so the workflow re-renders `.env` into the container.
+Runtime config comes from the k8s secret (OpenBao -> ESO), NOT GitHub secrets/dotenvx `.env`
+anymore. To change a value: patch the OpenBao path feeding `bot-env`, then
+`kubectl -n services rollout restart deploy/unorouter-bot`. `NEW_API_URL`/`DATABASE_URL` etc.
+are injected as plain pod env (visible in `kubectl exec ... env`, no `.env` file on disk).
 
 ## Architecture
 
@@ -191,21 +200,35 @@ Discord guild-command sync can lag a few seconds after deploy. Instead of typing
 
 Don't hardcode. Each session, refetch via the `guilds/${guildId}/channels` endpoint above. The bot doesn't need IDs at all (NAME substring resolution).
 
-## SSH access (don server, for diagnostics only)
+## Cluster access (logs, env, DB) — k3s, not don
+
+Kubeconfig lives at `infra/kubeconfig` (`export KUBECONFIG=.../infra/kubeconfig`).
+
+Logs + env (bot runs in namespace `services`, deploy/pod `unorouter-bot`):
 
 ```bash
-ssh -o StrictHostKeyChecking=no don@152.53.135.101 "docker logs unorouter-bot --tail 100"
-ssh -o StrictHostKeyChecking=no don@152.53.135.101 "docker exec unorouter-bot env | grep -E 'NEW_API|BOT_NAME'"
-ssh -o StrictHostKeyChecking=no don@152.53.135.101 "docker exec unorouter-bot cat /app/.env | sed 's/=.*/=SET/'"
+kubectl -n services logs deploy/unorouter-bot --tail 100 -f
+kubectl -n services exec deploy/unorouter-bot -- env | grep -E 'NEW_API|BOT_NAME|DATABASE_URL'
 ```
 
-`docker exec unorouter-bot env` shows only base process env. dotenvx-loaded vars are inside the Node process but not in `env` output — `cat /app/.env` is the source of truth.
+Env is now plain pod env (k8s secret via OpenBao/ESO); there is NO `.env` file on disk and
+no dotenvx wrapper in prod. `kubectl exec ... env` IS the source of truth.
 
-Postgres for new-api:
+Databases — two CloudNativePG clusters in namespace `databases`, reach via `kubectl exec`
+into the primary pod (`-pg-1` = current primary; confirm with `kubectl get cluster -n
+databases`). Bot DB is named `unorouter-bot-db`; new-api DB is `newapi`:
 
 ```bash
-ssh ... "docker exec unorouter-new-api-postgres psql -U newapi -d newapi -c \"SELECT id, username, discord_id FROM users WHERE discord_id <> '' LIMIT 10;\""
+# bot DB
+kubectl -n databases exec bot-pg-1 -c postgres -- \
+  psql -U postgres -d unorouter-bot-db -c "SELECT count(*) FROM member;"
+# new-api DB (the users table the bot grants against)
+kubectl -n databases exec newapi-pg-1 -c postgres -- \
+  psql -U postgres -d newapi -c "SELECT id, username, discord_id FROM users WHERE discord_id <> '' LIMIT 10;"
 ```
+
+For an app-user connection instead of superuser, the `-rw` service (`bot-pg-rw` /
+`newapi-pg-rw`) is the writable endpoint; creds are in OpenBao.
 
 ## Don'ts
 
@@ -214,7 +237,7 @@ ssh ... "docker exec unorouter-new-api-postgres psql -U newapi -d newapi -c \"SE
 - No tests unless explicitly requested.
 - No bloated comments. Comment only non-obvious WHY, one terse line. No restating code.
 - No barrel re-export files when splitting modules. Rewrite each importer.
-- Don't manually deploy to don. CI only.
+- Don't manually deploy. GHCR image build + ArgoCD/kubectl rollout only (don is gone).
 - Don't reset/regenerate new-api `SYSTEM_ACCESS_TOKEN` casually — every secret consumer (`NEW_API_ADMIN_TOKEN` here) breaks until re-set.
 
 ## Server channels (UnoRouter, guild 1498300365001588746)
