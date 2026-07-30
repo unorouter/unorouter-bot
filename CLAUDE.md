@@ -35,6 +35,7 @@ src/bot/commands/staff/                      slash commands: /grant /verify-pane
 src/bot/events/                              gateway listeners: ai-chat, guild-member-add/-update, message-create, thread-create
 src/bot/interactions/                        button + modal handlers: claim_connect, ticket_*, bug_*, reward_modal
 src/core/services/grant/grant.service.ts     new-api /api/user/discord_grant client, connect/boost bonuses, log channel announce
+src/core/services/server-tag/                server tag wear windows: $/day while the guild tag is worn
 src/core/services/roles/                     role + jail isolation logic
 src/core/services/messages/                  XP + level-up
 src/core/utils/command.utils.ts              purgeOwnPanels, safeDefer/EditReply, isStaff
@@ -66,15 +67,89 @@ Member overview: Users/Bots count, 30d/7d/24h memberflow, and a growth-chart PNG
 
 - Channel resolution by NAME substring via `findTextChannel(guild, "verify")` etc. Never store Discord IDs in code. Emoji renames (`verify` → `✅│verify`) keep working.
 - Brand strings env-driven: `BOT_NAME`, `WEBSITE_URL`. No hardcoded "unorouter".
-- All grant amounts ENV-DRIVEN IN DOLLARS, converted via `dollarsToQuota()` (`QUOTA_PER_DOLLAR`, default `500000` = $1).
+- All grant amounts ENV-DRIVEN IN DOLLARS. `src/shared/config/rewards.ts` is the ONE place the reward env vars are read (`REWARDS`), plus `dollarsToQuota()` (`QUOTA_PER_DOLLAR`, default `500000` = $1) and `formatDollars()`. Services and panels import from there; never `parseFloat(process.env.*_GRANT_DOLLARS)` in a service again.
+- Money for display ALWAYS goes through `formatDollars()`. It keeps the cents pair ($0.50, not $0.5) and a third decimal only when it carries meaning ($0.025, not a rounded $0.03). A bare `toFixed(2)` silently misstates any sub-cent payout.
 - new-api auth: requires BOTH `Authorization: <NEW_API_ADMIN_TOKEN>` AND `New-Api-User: <NEW_API_USER_ID>` headers. Token = admin user's access_token from new-api `users` table.
 - Crash-guard in `main.ts` — `unhandledRejection` + `uncaughtException` only log, never exit.
 - discordx classes look "unused" to knip — they're loaded via decorator side-effects in `src/bot/index.ts`. Ignore those flags.
 - No barrel files when splitting modules. Move symbol, update all importers via `grep`/`rg`.
 
+### Server tag reward
+
+Pays per FULL DAY the guild's tag is worn, tracked as wear windows in `server_tag_wears`.
+Duration-based on purpose: dropping the tag closes the window and discards its partial progress,
+so toggling it can never manufacture time. A partial unique index on `(member_id, guild_id) WHERE
+active` enforces one open window per member at the DB level.
+
+- Detection is `user.primaryGuild` off `guildMemberUpdate` (fires on change; needs the
+  `GuildMembers` intent). Gate on `identityEnabled === true` AND `identityGuildId === guildId` -
+  Discord leaves a STALE `identity_guild_id` on people who used to wear a since-renamed tag, so
+  matching the guild id alone pays non-wearers.
+- `reconcile()` runs on boot and hourly to repair windows missed during downtime. It never
+  backdates credit, and closes a stale window WITHOUT paying (we cannot know when the tag came
+  off). This is why there is no tag backfill command and none is needed.
+- Payouts are HELD, not skipped, when the recipient is unlinked or upstream refuses
+  (`ipDuplicate`): `nextPayoutAt` is left alone so the day is retried, capped at
+  `MAX_CATCHUP_PAYOUTS` per tick so a late link cannot burst hundreds of grant calls.
+- **Discord has NO API for SETTING a user's tag** - it is a profile setting only the user's own
+  client can change, and no OAuth scope exposes it. The verify-panel button can only report
+  status; do not try to build an "apply the tag" button.
+
+## Changing reward amounts (runbook)
+
+Amounts live in OpenBao, NOT in code. The bot serves them at `GET /rewards` (cluster-internal,
+port 4000, no public ingress) and the website docs fetch that endpoint hourly, so a cut needs
+no site deploy and no translation edits.
+
+```bash
+# 1. patch OpenBao (kv v2 at mount `secret`, path `bot-env`). USE patch, NOT put:
+#    put replaces the whole secret and would drop the other ~46 keys.
+TOKEN=$(sops -d secrets/openbao-init.sops.yaml | grep -i root_token | awk '{print $2}')   # in infra repo
+kubectl -n openbao exec openbao-0 -- sh -c "BAO_TOKEN='$TOKEN' bao kv patch secret/bot-env \
+  CONNECT_GRANT_DOLLARS=0.50 VOTE_GRANT_DOLLARS=0.025 BOOST_GRANT_DOLLARS=0.50 \
+  LEVEL_GRANT_DOLLARS=0.03,0.05,0.13,0.25,0.50,1,2.50,5,12.50"
+
+# 2. ESO refresh is 1h; force it, then restart so the pod picks up new env
+kubectl -n services annotate externalsecret bot-env force-sync=$(date +%s) --overwrite
+kubectl -n services rollout restart deploy/unorouter-bot
+
+# 3. verify what is ACTUALLY being paid
+kubectl -n services exec deploy/unorouter-bot -- wget -qO- http://localhost:4000/rewards
+```
+
+Then re-run `/verify-panel` and `/vote-panel` in Discord (both read the amount at runtime;
+`purgeOwnPanels` makes re-running idempotent). Docs follow within the hour.
+
+Env vars: `CONNECT_GRANT_DOLLARS`, `VOTE_GRANT_DOLLARS`, `BOOST_GRANT_DOLLARS`,
+`INVITE_GRANT_DOLLARS`, `SERVER_TAG_GRANT_DOLLARS`, `LEVEL_GRANT_DOLLARS` (comma list positional
+to `LEVEL_ROLES`). Set a value to `0` to disable that reward entirely; the panels degrade to
+"free balance" wording. Bug bounty has NO env var - staff type the amount per report.
+
+### Gotchas learned the hard way
+
+- **Deploy the bot BEFORE patching OpenBao** when the formatter changed, or the panels advertise
+  a rounded figure while the bot pays the real one.
+- **Non-bot surfaces do not auto-update.** The `❤️│boosters` post is authored by Don and states
+  the boost amount in prose; a user token must PATCH it (`/api/v9/channels/<ch>/messages/<id>`).
+  Grep the pinned posts in `📢 INFORMATION` for stale figures after every cut.
+- **Migrations are NOT applied automatically.** There is no migration runner in the bot; drizzle
+  -kit is a devDependency. A new table must be applied by hand against `bot-pg-1`, and then
+  `ALTER TABLE <t> OWNER TO unorouter;` (+ its `_id_seq`) - the app connects as `unorouter`, so a
+  table created as `postgres` is invisible to it and the query fails with a bare "Failed query".
+- **A channel that denies `@everyone` SEND_MESSAGES needs a bot ROLE overwrite** (type 0, against
+  the bot's guild role, e.g. `UnoRouter Bot`), not a member overwrite. Without it a panel command
+  purges the old post and then fails to send, leaving the channel empty. Restart the bot after
+  changing channel perms or discord.js keeps computing from its stale cache.
+
 ## Editing the Discord server itself (Browser MCP)
 
 Most server-admin tasks (rename channel, delete channel, edit pinned panel posts, post announcements) are NOT bot code. They go through the Discord web client via `mcp__chrome-devtools__*` tools. Brave runs with remote-debugging on port 9223; the chrome-devtools MCP attaches there.
+
+TWO ACCOUNTS, and the difference matters: **Brave (9223) is `Don`** (Admin role, authored the
+pinned posts, so only Don's token can PATCH them). **Chrome (9224) is `mr.countdown`, the SERVER
+OWNER** - it holds only the `Verified` role, so owner status is what grants it authority; use it
+for anything role/permission related that Don cannot do. The MCP is attached to Brave only;
+drive Chrome over raw CDP against its `webSocketDebuggerUrl`.
 
 > **Shipping a release post?** See [RELEASE-POSTS.md](RELEASE-POSTS.md) for the end-to-end runbook: when to use changelog vs announcements vs blog, the post+publish+edit MCP scripts, and the full blog flow (registry + content + 18-locale translation fan-out).
 
