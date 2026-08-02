@@ -132,10 +132,15 @@ to `LEVEL_ROLES`). Set a value to `0` to disable that reward entirely; the panel
 - **Non-bot surfaces do not auto-update.** The `❤️│boosters` post is authored by Don and states
   the boost amount in prose; a user token must PATCH it (`/api/v9/channels/<ch>/messages/<id>`).
   Grep the pinned posts in `📢 INFORMATION` for stale figures after every cut.
-- **Migrations are NOT applied automatically.** There is no migration runner in the bot; drizzle
-  -kit is a devDependency. A new table must be applied by hand against `bot-pg-1`, and then
-  `ALTER TABLE <t> OWNER TO unorouter;` (+ its `_id_seq`) - the app connects as `unorouter`, so a
-  table created as `postgres` is invisible to it and the query fails with a bare "Failed query".
+- **The bot DOES run migrations on boot** (a failure only logs "Database migration failed" and
+  the bot keeps running, so it is easy to miss). Prefer letting it apply them: generate with
+  drizzle-kit, commit, deploy. If you apply SQL BY HAND you must also
+  (a) `ALTER TABLE <t> OWNER TO unorouter;` plus its `_id_seq`, and `ALTER TYPE <enum> OWNER TO
+  unorouter;` - the app connects as `unorouter`, and objects created as `postgres` are either
+  invisible to it or refuse `ALTER TYPE ... ADD VALUE` with "must be owner of type"; and
+  (b) insert the migration's sha256 into `drizzle.__drizzle_migrations (hash, created_at)` using
+  the `when` value from `drizzle/meta/_journal.json`, or the runner replays it on every boot and
+  fails on the already-applied enum value.
 - **A channel that denies `@everyone` SEND_MESSAGES needs a bot ROLE overwrite** (type 0, against
   the bot's guild role, e.g. `UnoRouter Bot`), not a member overwrite. Without it a panel command
   purges the old post and then fails to send, leaving the channel empty. Restart the bot after
