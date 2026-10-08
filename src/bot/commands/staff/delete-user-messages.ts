@@ -113,6 +113,7 @@ export class DeleteUserMessages {
       user: user ?? null,
       reason: reason || "Manual moderation",
       moderatorId: interaction.user.id,
+      startChannelId: interaction.channelId,
     };
 
     // Recorded before the sweep so a restart mid-run cannot lose the entry; the

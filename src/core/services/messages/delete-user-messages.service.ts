@@ -3,8 +3,14 @@ import { ModLogService } from "@/core/services/moderation/modlog.service";
 import { RolesService } from "@/core/services/roles/roles.service";
 import { TicketService } from "@/core/services/tickets/ticket.service";
 import { db } from "@/lib/db";
-import { member, memberGuild, memberRole, role } from "@/lib/db-schema";
-import { and, eq, sql } from "drizzle-orm";
+import {
+  member,
+  memberGuild,
+  memberMessages,
+  memberRole,
+  role,
+} from "@/lib/db-schema";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { JAIL } from "@/shared/config/roles";
 import type { DeleteUserMessagesParams } from "@/types";
 import {
@@ -12,14 +18,18 @@ import {
   DiscordAPIError,
   ForumChannel,
   Guild,
+  GuildBasedChannel,
   GuildTextBasedChannel,
+  PermissionFlagsBits,
+  SnowflakeUtil,
   TextChannel,
   ThreadChannel,
   User,
 } from "discord.js";
 import { error, log } from "node:console";
 
-const CHANNEL_CONCURRENCY = 3;
+// discord.js queues per route bucket, and bulk delete buckets per channel
+const CHANNEL_CONCURRENCY = 10;
 const MAX_DELETE_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
 async function runWithConcurrency<T>(
@@ -47,6 +57,16 @@ async function runWithConcurrency<T>(
     ),
   );
   return results;
+}
+
+// Never sweep the jail channel: it holds the appeal conversation, which is
+// the one record staff need when reviewing whether a jail was correct.
+function isJailChannel(channel: GuildBasedChannel) {
+  return (
+    !!JAIL &&
+    "name" in channel &&
+    channel.name.toLowerCase().includes(JAIL.toLowerCase())
+  );
 }
 
 export class DeleteUserMessagesService {
@@ -162,8 +182,24 @@ export class DeleteUserMessagesService {
     );
     let totalDeleted = 0;
     const cutoff = Date.now() - MAX_DELETE_AGE_MS;
+    const me = params.guild.members.me;
 
     const deleteMessages = async (channel: GuildTextBasedChannel) => {
+      if (
+        !channel.lastMessageId ||
+        SnowflakeUtil.timestampFrom(channel.lastMessageId) < cutoff
+      )
+        return;
+      // 403s count toward Discord's invalid request limit (10k per 10 min ban)
+      const perms = me && channel.permissionsFor(me);
+      if (
+        !perms?.has([
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.ManageMessages,
+        ])
+      )
+        return;
       try {
         let deleted = 0;
         let lastMessageId: string | undefined;
@@ -225,27 +261,31 @@ export class DeleteUserMessagesService {
       }
     };
 
+    const startChannel = params.startChannelId
+      ? params.guild.channels.cache.get(params.startChannelId)
+      : undefined;
+    if (startChannel && !isJailChannel(startChannel)) {
+      if (startChannel.isThread()) await processThread(startChannel);
+      else if (startChannel.isTextBased()) await deleteMessages(startChannel);
+    }
+
+    totalDeleted += await this.deleteKnownMessages(params, cutoff);
+
     const channelTasks: (() => Promise<void>)[] = [];
 
     for (const channel of params.guild.channels.cache.values()) {
-      // Never sweep the jail channel: it holds the appeal conversation, which is
-      // the one record staff need when reviewing whether a jail was correct.
-      if (
-        JAIL &&
-        "name" in channel &&
-        channel.name.toLowerCase().includes(JAIL.toLowerCase())
-      ) {
+      if (channel.id === params.startChannelId || isJailChannel(channel))
         continue;
-      }
       if (channel.type === ChannelType.GuildForum) {
         channelTasks.push(async () => {
           const threads = await (channel as ForumChannel).threads
             .fetchActive()
             .catch(error);
           if (threads) {
-            for (const thread of threads.threads.values()) {
-              await processThread(thread);
-            }
+            await runWithConcurrency(
+              threads.threads.map((thread) => () => processThread(thread)),
+              CHANNEL_CONCURRENCY,
+            );
           }
         });
       } else if (
@@ -279,6 +319,54 @@ export class DeleteUserMessagesService {
       `[DeleteUserMessages] Finished. Deleted ${totalDeleted} messages total for user ${params.memberId}`,
     );
     return totalDeleted;
+  }
+
+  /**
+   * Bulk delete the messages already recorded in the DB, all channels in parallel.
+   * Misses content-less messages, which the sweep catches.
+   */
+  private static async deleteKnownMessages(
+    params: DeleteUserMessagesParams,
+    cutoff: number,
+  ) {
+    const rows = await db
+      .select({
+        channelId: memberMessages.channelId,
+        messageId: memberMessages.messageId,
+      })
+      .from(memberMessages)
+      .where(
+        and(
+          eq(memberMessages.memberId, params.memberId),
+          eq(memberMessages.guildId, params.guild.id),
+          gte(memberMessages.createdAt, new Date(cutoff).toISOString()),
+        ),
+      );
+
+    const byChannel = new Map<string, string[]>();
+    for (const row of rows) {
+      if (row.channelId === params.startChannelId) continue;
+      const ids = byChannel.get(row.channelId) ?? [];
+      ids.push(row.messageId);
+      byChannel.set(row.channelId, ids);
+    }
+
+    let deleted = 0;
+    const tasks = [...byChannel].map(([channelId, ids]) => async () => {
+      const channel = params.guild.channels.cache.get(channelId);
+      if (!channel?.isTextBased() || isJailChannel(channel)) return;
+      for (let i = 0; i < ids.length; i += 100) {
+        const result = await channel.bulkDelete(ids.slice(i, i + 100), true);
+        deleted += result.size;
+      }
+    });
+    const results = await runWithConcurrency(tasks, CHANNEL_CONCURRENCY);
+    for (const r of results) if (r.status === "rejected") error(r.reason);
+
+    log(
+      `[DeleteUserMessages] Fast path deleted ${deleted} of ${rows.length} recorded messages in ${byChannel.size} channels`,
+    );
+    return deleted;
   }
 
   private static async sendJailNotification(params: {
