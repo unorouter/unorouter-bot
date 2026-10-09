@@ -14,3 +14,8 @@ export const INVITE_JAIL_WARNINGS = 4; // Jail at 4th external invite
 export const TICKET_ACTION_LIMIT = 3;
 export const TICKET_ACTION_JAIL_LIMIT = 6;
 export const TICKET_ACTION_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+// Channel NAME substring; any non-staff message there jails and sweeps the author.
+export const HONEYPOT_CHANNEL = (
+  process.env.HONEYPOT_CHANNEL?.trim() || "honeypot"
+).toLowerCase();

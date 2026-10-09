@@ -1,6 +1,7 @@
 import { BoostService } from "@/core/services/boost/boost.service";
 import { MessagesService } from "@/core/services/messages/messages.service";
 import { DuplicateSpamService } from "@/core/services/spam/duplicate-spam.service";
+import { HoneypotService } from "@/core/services/spam/honeypot.service";
 import { SpamDetectionService } from "@/core/services/spam/spam-detection.service";
 import { TicketService } from "@/core/services/tickets/ticket.service";
 import { ExpressionUsageService } from "@/core/services/expressions/expression-usage.service";
@@ -31,6 +32,8 @@ export async function handleMessageCreate(message: Message): Promise<void> {
   const channelName =
     "name" in message.channel ? (message.channel.name ?? "") : "";
   if (JAIL && channelName.toLowerCase().includes(JAIL.toLowerCase())) return;
+
+  if (await HoneypotService.check(message)) return;
 
   const isSpam =
     await SpamDetectionService.detectSpamFirstMessageWithAi(message);
