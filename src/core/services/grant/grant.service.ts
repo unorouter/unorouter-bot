@@ -97,7 +97,10 @@ export class GrantService {
     const res = await grantDiscordQuota({
       discord_id: params.targetDiscordId,
       quota: params.quota,
-      check_ip_unique: params.checkIpUnique ?? false
+      check_ip_unique: params.checkIpUnique ?? false,
+      source: params.sourceId ? `${params.sourceType} ${params.sourceId}` : params.sourceType,
+      reason: params.reason,
+      granted_by: params.grantedByDiscordId
     }).catch((e: { status?: number; data?: unknown }) => {
       logger.error("Grant request failed", { status: e.status, body: e.data });
       throw new Error(`new-api grant failed (${e.status ?? "?"})`);
