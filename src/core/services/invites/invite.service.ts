@@ -20,6 +20,10 @@ type CachedInvite = {
 // a fresh invites.fetch() against this snapshot.
 const cache = new Map<string, Map<string, CachedInvite>>();
 
+// "guildId:memberId" -> attribution held until the member accepts the server
+// rules, so a join that never passes rules screening never pays its inviter.
+const awaitingRules = new Map<string, { inviterId: string; code: string }>();
+
 function snapshot(invite: Invite): CachedInvite {
   return {
     uses: invite.uses ?? 0,
@@ -118,6 +122,30 @@ export const InviteService = {
       return;
     }
 
+    if (member.pending) {
+      awaitingRules.set(`${guild.id}:${member.id}`, {
+        inviterId: hit.inviterId,
+        code: hit.code,
+      });
+      return;
+    }
+    await InviteService.creditJoin(member, hit.inviterId, hit.code);
+  },
+
+  async acceptRules(member: GuildMember): Promise<void> {
+    const key = `${member.guild.id}:${member.id}`;
+    const held = awaitingRules.get(key);
+    if (!held) return;
+    awaitingRules.delete(key);
+    await InviteService.creditJoin(member, held.inviterId, held.code);
+  },
+
+  async creditJoin(
+    member: GuildMember,
+    inviterId: string,
+    code: string,
+  ): Promise<void> {
+    const guild = member.guild;
     // invitee_id FKs to members; the join handler upserts the member only AFTER
     // attribution (to keep the invite-diff first), so ensure the member row
     // exists here before the FK insert.
@@ -129,18 +157,18 @@ export const InviteService = {
       .insert(inviteJoin)
       .values({
         guildId: guild.id,
-        inviterId: hit.inviterId,
+        inviterId: inviterId,
         inviteeId: member.id,
-        inviteCode: hit.code,
+        inviteCode: code,
       })
       .onConflictDoNothing()
       .returning({ id: inviteJoin.id });
 
     if (!inserted.length) return;
 
-    await InviteService.reconcileInviter(guild.id, hit.inviterId, member.id).catch((e) =>
+    await InviteService.reconcileInviter(guild.id, inviterId, member.id).catch((e) =>
       logger.error("Invite reconcile failed", {
-        inviter: hit.inviterId,
+        inviter: inviterId,
         invitee: member.id,
         error: String(e),
       }),

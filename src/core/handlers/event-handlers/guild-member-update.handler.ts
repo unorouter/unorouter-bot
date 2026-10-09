@@ -1,5 +1,6 @@
 import type { GuildMember, PartialGuildMember } from "discord.js";
-import { EVERYONE } from "@/shared/config/roles";
+import { EVERYONE, VERIFIED } from "@/shared/config/roles";
+import { handleRulesAccepted } from "@/core/handlers/event-handlers/guild-member-add.handler";
 import { RolesService } from "@/core/services/roles/roles.service";
 import { MemberDataService } from "@/core/services/members/member-data.service";
 import { BoostService } from "@/core/services/boost/boost.service";
@@ -14,6 +15,14 @@ export async function handleGuildMemberUpdate(
   newMember: GuildMember,
 ): Promise<void> {
   await syncRoles(oldMember, newMember);
+
+  // An uncached old member (bot restarted mid screening) has no pending flag to compare.
+  const acceptedRules = oldMember.partial
+    ? !newMember.roles.cache.some((r) => r.name === VERIFIED)
+    : oldMember.pending;
+  if (acceptedRules && !newMember.pending) {
+    await handleRulesAccepted(newMember);
+  }
 
   // Role-based vote sites (no webhook) add a role on each upvote. Reward
   // decisions run against persisted hold state, not the oldMember diff.

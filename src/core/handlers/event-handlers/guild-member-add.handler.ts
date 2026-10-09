@@ -44,18 +44,8 @@ export async function handleGuildMemberAdd(member: GuildMember): Promise<void> {
   await postWelcome(member);
 
   // Read saved roles before any upsert - upsert would overwrite them from the
-  // empty live cache on rejoin. Role name comes from the joined role entity.
-  const savedRoles = await db
-    .select({ roleId: memberRole.roleId, name: role.name })
-    .from(memberRole)
-    .innerJoin(role, eq(memberRole.roleId, role.roleId))
-    .where(
-      and(
-        eq(memberRole.memberId, member.id),
-        eq(memberRole.guildId, member.guild.id),
-      ),
-    )
-    .catch(() => []);
+  // empty live cache on rejoin.
+  const savedRoles = await readSavedRoles(member);
 
   // FK parents for member_roles writes.
   await MemberDataService.upsertGuild(member.guild);
@@ -78,8 +68,45 @@ export async function handleGuildMemberAdd(member: GuildMember): Promise<void> {
     return;
   }
 
-  // Roles to reapply: every saved role that still exists, is editable, and is not
-  // a restricted/managed role. Always include Verified.
+  // A role added before the member accepts the server rules skips rules screening.
+  if (member.pending) return;
+
+  await restoreRoles(member, savedRoles);
+}
+
+export async function handleRulesAccepted(member: GuildMember): Promise<void> {
+  const savedRoles = await readSavedRoles(member);
+  if (!savedRoles.some((r) => r.name === JAIL)) {
+    await restoreRoles(member, savedRoles);
+  }
+  await InviteService.acceptRules(member).catch((e) =>
+    logger.error("Invite credit on rules accept failed", {
+      member: member.id,
+      error: String(e),
+    }),
+  );
+}
+
+// Role name comes from the joined role entity.
+async function readSavedRoles(member: GuildMember) {
+  return db
+    .select({ roleId: memberRole.roleId, name: role.name })
+    .from(memberRole)
+    .innerJoin(role, eq(memberRole.roleId, role.roleId))
+    .where(
+      and(
+        eq(memberRole.memberId, member.id),
+        eq(memberRole.guildId, member.guild.id),
+      ),
+    )
+    .catch(() => []);
+}
+
+// Every saved role that still exists, is editable, and is not managed, plus Verified.
+async function restoreRoles(
+  member: GuildMember,
+  savedRoles: Array<{ roleId: string; name: string }>,
+): Promise<void> {
   const restoreIds = new Set<string>();
   for (const saved of savedRoles) {
     const role = member.guild.roles.cache.get(saved.roleId);
