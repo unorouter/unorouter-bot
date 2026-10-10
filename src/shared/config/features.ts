@@ -18,3 +18,16 @@ export const MEMBERS_COUNT_CHANNELS =
   process.env.MEMBERS_COUNT_CHANNELS?.split(",")
     .map((s) => s.trim())
     .filter(Boolean) ?? [];
+
+// Reaction roles: "channel-name-substring=Role Name" pairs, comma-separated. Any
+// reaction on a message in the channel grants the role; removing it takes it back.
+export const REACTION_ROLES: Array<{ channel: string; role: string }> = (
+  process.env.REACTION_ROLES ?? "matic-roles=Matic’s Follower"
+)
+  .split(",")
+  .map((pair) => pair.split("="))
+  .filter((parts) => parts.length === 2 && parts[0]!.trim() && parts[1]!.trim())
+  .map(([channel, role]) => ({
+    channel: channel!.trim().toLowerCase(),
+    role: role!.trim(),
+  }));

@@ -10,6 +10,7 @@ import "./events/invite-create";
 import "./events/invite-delete";
 import "./events/message-create";
 import "./events/message-reaction-add";
+import "./events/message-reaction-remove";
 import "./events/message-update";
 import "./events/thread-create";
 import "./events/thread-delete";
