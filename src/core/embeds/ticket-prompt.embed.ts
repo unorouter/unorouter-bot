@@ -36,6 +36,12 @@ const BUG_FIELDS = [
   },
 ];
 
+const CLOSE_FIELD = {
+  name: "Problem solved?",
+  value:
+    "Press **Close** on the first message in this ticket so staff know you are done.",
+};
+
 // Posted right after a ticket opens: an empty ticket costs a full round trip
 // before staff can even start, and the opener is often gone by the time someone
 // asks what they wanted.
@@ -47,7 +53,7 @@ export function ticketPromptEmbed(category: TicketCategory): APIEmbed {
     description: bug
       ? "Post the details below in this channel. A ticket with no description just waits until someone asks, so the more you write now the faster this moves."
       : `Post the details below in this channel. A ticket with no description just waits until someone asks, so the more you write now the faster this moves.\n\nAccount and balance questions are usually quickest to answer with your site username to hand: ${WEBSITE_URL}`,
-    fields: bug ? BUG_FIELDS : SUPPORT_FIELDS,
+    fields: [...(bug ? BUG_FIELDS : SUPPORT_FIELDS), CLOSE_FIELD],
     footer: {
       text: "Staff have been pinged. Write your message now, they will read it when they arrive.",
     },
