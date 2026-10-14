@@ -56,7 +56,11 @@ bot.on("shardReady", () => discordEvidence.coverageChanged());
 bot.on("shardResume", () => discordEvidence.coverageChanged());
 bot.on("messageCreate", (message) => {
   if (message.author.id !== bot.user?.id) return;
-  discordEvidence.observe(message.id, message.channelId);
+  discordEvidence.observe(
+    message.id,
+    message.channelId,
+    message.interactionMetadata?.id,
+  );
   logger.info("Bot account message observed", {
     event: "security.discord_observed",
     message_id: message.id,

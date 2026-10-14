@@ -5,6 +5,9 @@ import { logger } from "@/lib/logger";
 // request bodies, webhook URLs, interaction tokens, or message content.
 export function recordDiscordEvidence(rest: REST) {
   const sent = new Map<string, number>();
+  // A deferred reply's message is created at once but its id only reaches us on a
+  // later edit, so a reply is matched by the interaction it answers instead.
+  const answered = new Map<string, number>();
   const observed = new Map<
     string,
     { channelId: string; at: number; generation: number }
@@ -37,6 +40,8 @@ export function recordDiscordEvidence(rest: REST) {
       observed.delete(id);
     }
     for (const item of sent) if (now - item[1] > 600_000) sent.delete(item[0]);
+    for (const item of answered)
+      if (now - item[1] > 600_000) answered.delete(item[0]);
   }, 5_000);
   timer.unref();
   const request = rest.request.bind(rest);
@@ -50,8 +55,8 @@ export function recordDiscordEvidence(rest: REST) {
     // A callback answers 204 with no body, so the reply it creates carries no id
     // here and every interaction reply reads as a message we never sent.
     // with_response upgrades it to 200 and returns the message itself.
-    const callback = /^\/interactions\/\d+\/[^/]+\/callback$/.test(
-      options.fullRoute,
+    const callback = options.fullRoute.match(
+      /^\/interactions\/(\d+)\/[^/]+\/callback$/,
     );
     const attempt = crypto.randomUUID();
     const metadata = {
@@ -68,6 +73,7 @@ export function recordDiscordEvidence(rest: REST) {
       build: process.env.GIT_SHA,
     };
     logger.info("Discord request attempt", metadata);
+    if (callback) answered.set(callback[1], Date.now());
     try {
       const result = await request(
         callback
@@ -128,7 +134,9 @@ export function recordDiscordEvidence(rest: REST) {
       generation++;
       readySince = Date.now();
     },
-    observe(messageId: string, channelId: string) {
+    observe(messageId: string, channelId: string, interactionId?: string) {
+      if (interactionId && answered.has(interactionId))
+        sent.set(messageId, Date.now());
       if (observed.size >= 10_000) {
         logger.warn("Discord evidence capacity reached", {
           event: "security.discord_coverage_gap",
