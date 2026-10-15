@@ -3,6 +3,7 @@ import {
   fitLines,
   HELPER_COMMAND_PERMISSION,
   isHelper,
+  isModerator,
   safeEditReply,
   startStaffCommand,
 } from "@/core/utils/command.utils";
@@ -10,7 +11,6 @@ import {
   ApplicationCommandOptionType,
   CommandInteraction,
   GuildMember,
-  PermissionFlagsBits,
   User,
 } from "discord.js";
 import { Discord, Slash, SlashOption } from "discordx";
@@ -33,8 +33,8 @@ async function addMember(interaction: CommandInteraction, user: User) {
 
 async function removeMember(interaction: CommandInteraction, user: User) {
   const member = interaction.member as GuildMember;
-  if (!member.permissions.has(PermissionFlagsBits.Administrator))
-    return "Only admins can take someone off the watchlist.";
+  if (!isModerator(member))
+    return "Only moderators can take someone off the watchlist.";
 
   const removed = await WatchlistService.remove(interaction.guild!.id, user.id);
   return removed
@@ -60,7 +60,7 @@ export class WatchlistCommand {
     add: User | undefined,
     @SlashOption({
       name: "remove",
-      description: "Member to take off the watchlist (admins)",
+      description: "Member to take off the watchlist (moderators)",
       required: false,
       type: ApplicationCommandOptionType.User,
     })
@@ -81,7 +81,17 @@ export class WatchlistCommand {
     return reply(
       fitLines([
         `**Watchlist** (${rows.length})`,
-        ...rows.map((row) => `<@${row.memberId}>, added by <@${row.addedBy}>`),
+        ...(await Promise.all(
+          rows.map(async (row) => {
+            const user = await interaction.client.users
+              .fetch(row.memberId)
+              .catch(() => null);
+            const names = user
+              ? ` (${user.username}) ${user.globalName ?? user.username}`
+              : "";
+            return `<@${row.memberId}>${names}, added by <@${row.addedBy}>`;
+          }),
+        )),
       ]),
     );
   }
