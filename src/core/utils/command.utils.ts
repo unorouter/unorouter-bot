@@ -106,11 +106,11 @@ export async function safeEditReply(
   }
 }
 
-// Picker visibility for staff commands. Moderate Members and Manage Messages are
-// dropped for accounts without 2FA on this server, which hid these from staff;
-// the role check inside each command is what actually authorizes.
+// Picker visibility for staff commands. Moderate Members, Manage Messages and Pin
+// Messages are dropped for accounts without 2FA on this server, which hid these
+// from staff; the role check inside each command is what actually authorizes.
 export const STAFF_COMMAND_PERMISSION = PermissionFlagsBits.ViewAuditLog;
-export const HELPER_COMMAND_PERMISSION = PermissionFlagsBits.PinMessages;
+export const HELPER_COMMAND_PERMISSION = PermissionFlagsBits.MuteMembers;
 
 export async function startStaffCommand(
   interaction: CommandInteraction,

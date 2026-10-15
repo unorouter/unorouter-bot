@@ -3,7 +3,6 @@ import {
   fitLines,
   HELPER_COMMAND_PERMISSION,
   isHelper,
-  isModerator,
   safeEditReply,
   startStaffCommand,
 } from "@/core/utils/command.utils";
@@ -11,6 +10,7 @@ import {
   ApplicationCommandOptionType,
   CommandInteraction,
   GuildMember,
+  PermissionFlagsBits,
   User,
 } from "discord.js";
 import { Discord, Slash, SlashOption } from "discordx";
@@ -33,8 +33,8 @@ async function addMember(interaction: CommandInteraction, user: User) {
 
 async function removeMember(interaction: CommandInteraction, user: User) {
   const member = interaction.member as GuildMember;
-  if (!isModerator(member))
-    return "Only moderators can take someone off the watchlist.";
+  if (!member.permissions.has(PermissionFlagsBits.Administrator))
+    return "Only admins can take someone off the watchlist.";
 
   const removed = await WatchlistService.remove(interaction.guild!.id, user.id);
   return removed
@@ -60,7 +60,7 @@ export class WatchlistCommand {
     add: User | undefined,
     @SlashOption({
       name: "remove",
-      description: "Member to take off the watchlist (moderators)",
+      description: "Member to take off the watchlist (admins)",
       required: false,
       type: ApplicationCommandOptionType.User,
     })
