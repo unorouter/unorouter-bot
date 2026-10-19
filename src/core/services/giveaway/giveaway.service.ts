@@ -99,9 +99,10 @@ export class GiveawayService {
   /**
    * Score every eligible member over the round's window.
    *
-   * Eligibility is a `connect` grant: linking is what the verify panel pays for,
-   * it is already required to RECEIVE balance, and it removes alt accounts for
-   * free. Scoring is multi-signal because most of the people supporting this
+   * Eligibility is any reward paid into a linked account: linking is required to
+   * receive balance and every grant passed the alt check. A `connect` grant alone
+   * missed members who linked on the site without pressing the verify button.
+   * Scoring is multi-signal because most of the people supporting this
    * server never post - a majority of voters and tag wearers have zero messages,
    * so a message-only score would ignore them entirely.
    */
@@ -140,7 +141,7 @@ export class GiveawayService {
       WITH eligible AS (
         SELECT DISTINCT target_member_id AS member_id
         FROM ${rewardGrant}
-        WHERE source_type = 'connect'
+        WHERE new_api_user_id IS NOT NULL AND source_type <> 'transfer'
       ),
       grants AS (
         SELECT target_member_id AS member_id,
