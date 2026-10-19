@@ -5,7 +5,7 @@ import {
   safeEditReply,
 } from "@/core/utils/command.utils";
 import { BOT_NAME } from "@/shared/config/branding";
-import { REWARDS, formatDollars } from "@/shared/config/rewards";
+import { REWARDS, REWARD_EXPIRY_NOTE, formatDollars } from "@/shared/config/rewards";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -84,7 +84,7 @@ export class VotePanelCommand {
       `- You can vote on each site again every **12 hours**`,
       "",
       `⚠️ Listing sites go down or skip a vote now and then, so a reward can miss. No action needed, just vote again next window and it lands.`,
-      `⏳ *Rewards expire if unused.*`,
+      REWARD_EXPIRY_NOTE,
     ];
 
     if (extraLinks.length) {

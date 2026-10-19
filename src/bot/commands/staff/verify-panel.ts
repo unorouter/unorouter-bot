@@ -5,7 +5,7 @@ import {
   safeEditReply,
 } from "@/core/utils/command.utils";
 import { BOT_NAME, WEBSITE_URL } from "@/shared/config/branding";
-import { REWARDS, formatDollars } from "@/shared/config/rewards";
+import { REWARDS, REWARD_EXPIRY_NOTE, formatDollars } from "@/shared/config/rewards";
 import { ButtonId } from "@/types/custom-ids";
 import {
   ActionRowBuilder,
@@ -75,7 +75,7 @@ export class VerifyPanelCommand {
               ]
             : []),
           "",
-          `⏳ *Rewards expire if unused.*`,
+          REWARD_EXPIRY_NOTE,
         ].join("\n"),
       )
       .setColor(0x9b59ff);

@@ -1,6 +1,6 @@
 import { APIEmbed } from "discord.js";
 import { BOT_NAME, GREEN_COLOR, WEBSITE_URL } from "@/shared/config/branding";
-import { formatDollars } from "@/shared/config/rewards";
+import { formatDollars, REWARD_EXPIRY_NOTE } from "@/shared/config/rewards";
 import { isDmToggleable, type GrantSourceType } from "@/types";
 
 type RewardCopy = { title: string; intro: string };
@@ -68,6 +68,7 @@ export function grantRewardEmbed(params: {
   if (params.voteAgainHours) {
     lines.push("", `Vote again in **${params.voteAgainHours} hours** for another reward!`);
   }
+  lines.push("", REWARD_EXPIRY_NOTE);
 
   // Only the recurring sources can be muted; one-time grants always DM, so
   // promising an opt-out on those would be a lie.

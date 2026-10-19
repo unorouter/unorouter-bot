@@ -60,3 +60,6 @@ export function rewardsPayload() {
     levelTotal: levels.reduce((sum, level) => sum + level.dollars, 0),
   };
 }
+
+export const REWARD_EXPIRY_NOTE =
+  "⏳ *Rewards expire after 12 months if unused. Purchased balance never expires.*";
