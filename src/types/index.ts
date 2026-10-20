@@ -149,6 +149,7 @@ export interface GrantResult {
   userId?: number;
   quota: number;
   ipDuplicate?: boolean;
+  userMismatch?: boolean;
 }
 
 export type TransferResult =

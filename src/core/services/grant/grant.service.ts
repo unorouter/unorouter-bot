@@ -86,6 +86,7 @@ export class GrantService {
     announceInviteeId?: string | null;
     checkIpUnique?: boolean;
     reservedGrantId?: number;
+    expectedUserId?: number;
   }): Promise<GrantResult> {
     if (!this.isConfigured()) {
       logger.warn("Grant skipped: NEW_API_URL / NEW_API_BOT_TOKEN missing");
@@ -101,7 +102,8 @@ export class GrantService {
       check_ip_unique: params.checkIpUnique ?? false,
       source: params.sourceId ? `${params.sourceType} ${params.sourceId}` : params.sourceType,
       reason: params.reason,
-      granted_by: params.grantedByDiscordId
+      granted_by: params.grantedByDiscordId,
+      expected_user_id: params.expectedUserId
     }).catch((e: { status?: number; data?: unknown }) => {
       logger.error("Grant request failed", { status: e.status, body: e.data });
       throw new Error(`new-api grant failed (${e.status ?? "?"})`);
@@ -114,6 +116,20 @@ export class GrantService {
 
     if (!json.data.linked) {
       return { linked: false, quota: params.quota };
+    }
+
+    if (json.data.user_mismatch) {
+      logger.warn("Grant refused: Discord link moved to another account", {
+        member: params.targetDiscordId,
+        expected: params.expectedUserId,
+        actual: json.data.user_id
+      });
+      return {
+        linked: true,
+        userId: json.data.user_id,
+        quota: params.quota,
+        userMismatch: true
+      };
     }
 
     if (json.data.ip_duplicate) {
@@ -200,6 +216,17 @@ export class GrantService {
     );
 
     return { linked: true, userId, quota: params.quota };
+  }
+
+  // new-api user currently linked to this Discord ID, without moving quota.
+  static async linkedUserId(discordId: string): Promise<number | null> {
+    const res = await grantDiscordQuota({
+      discord_id: discordId,
+      quota: 0,
+      dry_run: true
+    });
+    if (res.data.success === false || !res.data.data.linked) return null;
+    return res.data.data.user_id || null;
   }
 
   /**
@@ -379,8 +406,9 @@ export class GrantService {
   /**
    * One-time connect flow for the claim panel. Verifies the member's Discord is
    * linked to the platform. First successful verify grants a one-time connect bonus
-   * (recorded as sourceType="connect") and adds the connected role. Repeat clicks
-   * only ensure the role - no second bonus.
+   * (recorded as sourceType="connect") and adds the connected role. The bonus is
+   * once per Discord member AND once per platform account, both enforced by unique
+   * indexes on the reserved row. Repeat clicks only ensure the role.
    */
   static async connectBonus(guildMember: GuildMember): Promise<ConnectResult> {
     if (!this.isConfigured()) return { status: ConnectStatus.NotLinked };
@@ -388,6 +416,14 @@ export class GrantService {
     const quota = CONNECT_GRANT_QUOTA;
     const grantedQuota = quota > 0 ? quota : 1; // endpoint requires > 0; min 1 just verifies the link
     const reason = "discord connect bonus";
+
+    const newApiUserId = await this.linkedUserId(guildMember.id).catch(
+      (e: { status?: number }) => {
+        logger.error("Connect link lookup failed", { status: e.status });
+        return null;
+      }
+    );
+    if (newApiUserId == null) return { status: ConnectStatus.NotLinked };
 
     await db
       .insert(member)
@@ -397,6 +433,7 @@ export class GrantService {
       .insert(rewardGrant)
       .values({
         targetMemberId: guildMember.id,
+        newApiUserId,
         quota: grantedQuota,
         reason,
         sourceType: "connect"
@@ -405,7 +442,7 @@ export class GrantService {
       .returning({ id: rewardGrant.id });
 
     if (!reserved) {
-      // Already claimed once: they were linked before. Just ensure the role.
+      // Already claimed by this member or by this platform account. Just ensure the role.
       await this.ensureConnectedRole(guildMember);
       return {
         status: ConnectStatus.Connected,
@@ -422,16 +459,17 @@ export class GrantService {
       sourceId: null,
       grantedByDiscordId: "system",
       checkIpUnique: true,
-      reservedGrantId: reserved.id
+      reservedGrantId: reserved.id,
+      expectedUserId: newApiUserId
     }).catch(() => ({ linked: false, quota }) as GrantResult);
 
-    if (!result.linked || result.ipDuplicate) {
+    if (!result.linked || result.ipDuplicate || result.userMismatch) {
       await db.delete(rewardGrant).where(eq(rewardGrant.id, reserved.id));
     }
     if (!result.linked) return { status: ConnectStatus.NotLinked };
 
     await this.ensureConnectedRole(guildMember);
-    if (result.ipDuplicate) {
+    if (result.ipDuplicate || result.userMismatch) {
       return {
         status: ConnectStatus.Connected,
         bonusGranted: false,

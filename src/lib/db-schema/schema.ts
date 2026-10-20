@@ -683,6 +683,11 @@ export const inviteSeed = pgTable(
 // for automated ("system") grants, else the acting member. A connect row is
 // inserted as a reservation BEFORE the upstream credit, so the partial unique
 // index is the once-lock for the connect bonus.
+const CONNECT_HISTORIC_DUPLICATE_IDS = [
+  31, 32, 2346, 11032, 33863, 37685, 37688, 37694, 42578, 45926, 49416, 51400,
+  51404, 57709, 78991, 79017, 88122,
+];
+
 export const rewardGrant = pgTable(
   "reward_grants",
   {
@@ -719,6 +724,13 @@ export const rewardGrant = pgTable(
     uniqueIndex("uq_reward_grants_connect_target")
       .on(table.targetMemberId)
       .where(sql`${table.sourceType} = 'connect'`),
+    // Historic second bonuses through other Discord accounts stay paid (no
+    // clawback), so their rows sit outside the index; the first row per account still locks it.
+    uniqueIndex("uq_reward_grants_connect_user")
+      .on(table.newApiUserId)
+      .where(
+        sql`${table.sourceType} = 'connect' AND ${table.id} NOT IN (${sql.raw(CONNECT_HISTORIC_DUPLICATE_IDS.join(","))})`,
+      ),
   ],
 );
 

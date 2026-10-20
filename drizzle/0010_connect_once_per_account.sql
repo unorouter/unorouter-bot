@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "uq_reward_grants_connect_user" ON "reward_grants" USING btree ("new_api_user_id") WHERE "reward_grants"."source_type" = 'connect' AND "reward_grants"."id" NOT IN (31,32,2346,11032,33863,37685,37688,37694,42578,45926,49416,51400,51404,57709,78991,79017,88122);

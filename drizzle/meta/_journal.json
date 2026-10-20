@@ -71,6 +71,13 @@
       "when": 1792517697454,
       "tag": "0009_reward_once_locks",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792528421497,
+      "tag": "0010_connect_once_per_account",
+      "breakpoints": true
     }
   ]
 }

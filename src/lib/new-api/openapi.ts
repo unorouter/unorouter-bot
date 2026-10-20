@@ -239,6 +239,24 @@ export interface AudioTranscriptionResponse {
   text: string;
 }
 
+export interface LoginSessionView {
+  created_at: number;
+  current: boolean;
+  expires_at: number;
+  ip: string;
+  last_active_at: number;
+  login_method: string;
+  sid: string;
+  user_agent: string;
+}
+
+export interface AuthRotationData {
+  access_expires_at?: number;
+  access_token?: string;
+  session?: LoginSessionView;
+  token_type?: string;
+}
+
 export interface AvailableReplica {
   available_count: number;
   hardware_id: number;
@@ -251,6 +269,15 @@ export interface AvailableReplica {
 export interface AvailableReplicasResponse {
   /** @nullable */
   replicas: AvailableReplica[] | null;
+}
+
+export interface BackupCodesData {
+  access_expires_at?: number;
+  access_token?: string;
+  /** @nullable */
+  backup_codes: string[] | null;
+  session?: LoginSessionView;
+  token_type?: string;
 }
 
 export interface BarSegmentDTO {
@@ -274,12 +301,36 @@ export interface BillingPreferenceRequest {
   billing_preference: string;
 }
 
+export interface ClaudeCacheCreationUsage {
+  ephemeral_1h_input_tokens?: number;
+  ephemeral_5m_input_tokens?: number;
+}
+
+export interface ClaudeServerToolUse {
+  code_execution_requests?: number;
+  tool_search_requests?: number;
+  web_fetch_requests?: number;
+  web_search_requests?: number;
+}
+
+export interface ClaudeUsage {
+  billing_usage?: BillingUsage;
+  cache_creation?: ClaudeCacheCreationUsage;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+  claude_cache_creation_1_h_tokens: number;
+  claude_cache_creation_5_m_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  server_tool_use?: ClaudeServerToolUse;
+}
+
 export interface GeminiPromptTokensDetails {
   modality: string;
   tokenCount: number;
 }
 
-export interface BillingUsage {
+export interface GeminiUsageMetadata {
   billing_usage?: BillingUsage;
   cachedContentTokenCount: number;
   candidatesTokenCount: number;
@@ -295,12 +346,11 @@ export interface BillingUsage {
   totalTokenCount: number;
 }
 
-export interface BucketPoint {
-  avg_latency_ms: number;
-  avg_tps: number;
-  avg_ttft_ms: number;
-  success_rate: number;
-  ts: number;
+export interface OutputTokenDetails {
+  audio_tokens: number;
+  image_tokens: number;
+  reasoning_tokens: number;
+  text_tokens: number;
 }
 
 export interface CachedTokenDetails {
@@ -310,6 +360,52 @@ export interface CachedTokenDetails {
   image_tokens?: number | null;
   /** @nullable */
   text_tokens?: number | null;
+}
+
+export interface InputTokenDetails {
+  audio_tokens: number;
+  cache_write_tokens?: number;
+  cached_creation_tokens?: number;
+  cached_tokens: number;
+  cached_tokens_details?: CachedTokenDetails;
+  image_tokens: number;
+  text_tokens: number;
+}
+
+export interface Usage {
+  billing_usage?: BillingUsage;
+  claude_cache_creation_1_h_tokens: number;
+  claude_cache_creation_5_m_tokens: number;
+  completion_tokens: number;
+  completion_tokens_details: OutputTokenDetails;
+  cost?: unknown;
+  input_tokens: number;
+  input_tokens_details: InputTokenDetails;
+  output_tokens: number;
+  output_tokens_details?: OutputTokenDetails;
+  prompt_cache_hit_tokens?: number;
+  prompt_tokens: number;
+  prompt_tokens_details: InputTokenDetails;
+  total_tokens: number;
+  usage_semantic?: string;
+  usage_source?: string;
+}
+
+export interface BillingUsage {
+  claude_usage?: ClaudeUsage;
+  estimated?: boolean;
+  gemini_usage_metadata?: GeminiUsageMetadata;
+  openai_usage?: Usage;
+  semantic?: string;
+  source?: string;
+}
+
+export interface BucketPoint {
+  avg_latency_ms: number;
+  avg_tps: number;
+  avg_ttft_ms: number;
+  success_rate: number;
+  ts: number;
 }
 
 export interface CardItemDTO {
@@ -492,11 +588,6 @@ export interface CheckinStatusData {
   stats: CheckinStats;
 }
 
-export interface ClaudeCacheCreationUsage {
-  ephemeral_1h_input_tokens?: number;
-  ephemeral_5m_input_tokens?: number;
-}
-
 /**
  * ClaudeMessageResponse schema
  */
@@ -511,25 +602,6 @@ export interface ClaudeMessageResponse {
   stop_sequence: string | null;
   type: string;
   usage: unknown;
-}
-
-export interface ClaudeServerToolUse {
-  code_execution_requests?: number;
-  tool_search_requests?: number;
-  web_fetch_requests?: number;
-  web_search_requests?: number;
-}
-
-export interface ClaudeUsage {
-  billing_usage?: BillingUsage;
-  cache_creation?: ClaudeCacheCreationUsage;
-  cache_creation_input_tokens: number;
-  cache_read_input_tokens: number;
-  claude_cache_creation_1_h_tokens: number;
-  claude_cache_creation_5_m_tokens: number;
-  input_tokens: number;
-  output_tokens: number;
-  server_tool_use?: ClaudeServerToolUse;
 }
 
 export interface ClusterNameAvailabilityResponse {
@@ -743,9 +815,13 @@ export interface CreateTokenRequest {
   /** @nullable */
   allow_ips: string | null;
   /** @nullable */
+  allow_user_quota_query: boolean | null;
+  /** @nullable */
   auto_groups: string[] | null;
   /** @nullable */
   cross_group_retry: boolean | null;
+  /** @nullable */
+  default_reasoning_effort: string | null;
   expired_time: number;
   group: string;
   /** @nullable */
@@ -1054,42 +1130,6 @@ export interface EmbeddingResponseItem {
   object: string;
 }
 
-export interface OutputTokenDetails {
-  audio_tokens: number;
-  image_tokens: number;
-  reasoning_tokens: number;
-  text_tokens: number;
-}
-
-export interface InputTokenDetails {
-  audio_tokens: number;
-  cache_write_tokens?: number;
-  cached_creation_tokens?: number;
-  cached_tokens: number;
-  cached_tokens_details?: CachedTokenDetails;
-  image_tokens: number;
-  text_tokens: number;
-}
-
-export interface Usage {
-  billing_usage?: BillingUsage;
-  claude_cache_creation_1_h_tokens: number;
-  claude_cache_creation_5_m_tokens: number;
-  completion_tokens: number;
-  completion_tokens_details: OutputTokenDetails;
-  cost?: unknown;
-  input_tokens: number;
-  input_tokens_details: InputTokenDetails;
-  output_tokens: number;
-  output_tokens_details?: OutputTokenDetails;
-  prompt_cache_hit_tokens?: number;
-  prompt_tokens: number;
-  prompt_tokens_details: InputTokenDetails;
-  total_tokens: number;
-  usage_semantic?: string;
-  usage_source?: string;
-}
-
 /**
  * EmbeddingResponse schema
  */
@@ -1198,27 +1238,43 @@ export interface FlowQuotaData {
 }
 
 /**
+ * FreeConsentGrantRequest schema
+ */
+export interface FreeConsentGrantRequest {
+  /** @maxLength 16 */
+  locale: string;
+  /** @maxLength 255 */
+  model: string;
+  /** @maxLength 20000 */
+  text: string;
+}
+
+export interface FreeConsentItem {
+  covers: boolean;
+  created_at: number;
+  locale: string;
+  model: string;
+}
+
+export interface FreeConsentListData {
+  /** @nullable */
+  consents: FreeConsentItem[] | null;
+}
+
+/**
+ * FreeConsentRevokeRequest schema
+ */
+export interface FreeConsentRevokeRequest {
+  /** @maxLength 255 */
+  model: string;
+}
+
+/**
  * GeminiModelList schema
  */
 export interface GeminiModelList {
   models: unknown;
   nextPageToken: unknown;
-}
-
-export interface GeminiUsageMetadata {
-  billing_usage?: BillingUsage;
-  cachedContentTokenCount: number;
-  candidatesTokenCount: number;
-  /** @nullable */
-  candidatesTokensDetails: GeminiPromptTokensDetails[] | null;
-  promptTokenCount: number;
-  /** @nullable */
-  promptTokensDetails: GeminiPromptTokensDetails[] | null;
-  thoughtsTokenCount: number;
-  toolUsePromptTokenCount: number;
-  /** @nullable */
-  toolUsePromptTokensDetails: GeminiPromptTokensDetails[] | null;
-  totalTokenCount: number;
 }
 
 export type GetAllChannelsDataTypeCountsAnyOf = { [key: string]: number };
@@ -1243,6 +1299,7 @@ export interface GrantDiscordQuotaData {
   ip_duplicate?: boolean;
   linked: boolean;
   user_id: number;
+  user_mismatch?: boolean;
 }
 
 /**
@@ -1251,10 +1308,20 @@ export interface GrantDiscordQuotaData {
 export interface GrantDiscordQuotaRequest {
   check_ip_unique?: boolean;
   discord_id: string;
+  dry_run?: boolean;
+  expected_user_id?: number;
   granted_by?: string;
   quota: number;
   reason?: string;
   source?: string;
+}
+
+export interface GroupDataPolicy {
+  onward_unvetted: boolean;
+  prompts: string;
+  seat_country?: string;
+  transfer: string;
+  unsafe_third_country: boolean;
 }
 
 export interface GroupResult {
@@ -1484,9 +1551,9 @@ export interface LoginData {
  * LoginRequest schema
  */
 export interface LoginRequest {
-  encryption_key_id: string;
+  encryption_key_id?: string;
   password: string;
-  password_encrypted: string;
+  password_encrypted?: string;
   username: string;
 }
 
@@ -1849,7 +1916,14 @@ export interface OAuthExchangeData {
   access_token: string;
   action?: string;
   display_name: string;
+  flow_token?: string;
+  /** @nullable */
+  methods?: null;
+  proof_expires_at?: number;
+  proof_token?: string;
   role: number;
+  scope?: string;
+  state?: string;
   user_id: number;
   username: string;
 }
@@ -1926,6 +2000,24 @@ export interface OptionUpdateRequest {
   value: unknown;
 }
 
+export interface OwnPurposeObjectionData {
+  objection: boolean;
+}
+
+/**
+ * OwnPurposeObjectionRequest schema
+ */
+export interface OwnPurposeObjectionRequest {
+  /** @nullable */
+  objection: boolean | null;
+}
+
+export interface OwnPurposeSummary {
+  consent_required: boolean;
+  countries: string[];
+  trains_or_retains: boolean;
+}
+
 export interface PartnerGrantData {
   balance_after: number;
   granted: number;
@@ -1957,15 +2049,35 @@ export interface PartnerVoidData {
   refunded: number;
 }
 
+/**
+ * PasskeyFinishRequest schema
+ */
+export interface PasskeyFinishRequest {
+  /** WebAuthn credential response, binary fields base64url */
+  credential: unknown;
+  flow_token: string;
+}
+
 export interface PasskeyOptionsData {
-  expires_at?: number;
-  flow_token?: string;
+  expires_at: number;
+  flow_token: string;
   options: unknown;
+  /** @nullable */
+  rp_ids?: string[] | null;
 }
 
 export interface PasskeyStatusData {
   enabled: boolean;
   last_used_at?: unknown;
+}
+
+/**
+ * PasskeyVerifyBeginRequest schema
+ */
+export interface PasskeyVerifyBeginRequest {
+  context?: unknown;
+  rp_id?: string;
+  scope: string;
 }
 
 /**
@@ -2140,6 +2252,7 @@ export interface PricingCatalogModel {
   /** @nullable */
   original_output_price?: number | null;
   output_price: number;
+  own_purpose?: OwnPurposeSummary;
   release_ts: number;
   /** @nullable */
   success_rate?: number | null;
@@ -2173,6 +2286,10 @@ export interface PricingCatalogData {
 
 export type PricingCatalogDetailGridPricingItem = { [key: string]: unknown };
 
+export type PricingCatalogDetailGroupProviders = {
+  [key: string]: GroupDataPolicy;
+};
+
 export type PricingCatalogDetailGroupRatio = { [key: string]: number };
 
 /**
@@ -2196,6 +2313,7 @@ export interface PricingCatalogDetail {
   grid_min_ratio: number;
   /** @nullable */
   grid_pricing?: PricingCatalogDetailGridPricingItem[] | null;
+  group_providers: PricingCatalogDetailGroupProviders;
   group_ratio: PricingCatalogDetailGroupRatio;
   icon?: string;
   input_price: number;
@@ -2213,6 +2331,7 @@ export interface PricingCatalogDetail {
   /** @nullable */
   original_output_price?: number | null;
   output_price: number;
+  own_purpose?: OwnPurposeSummary;
   release_ts: number;
   /** @nullable */
   success_rate?: number | null;
@@ -2298,6 +2417,10 @@ export interface PricingData {
   vendors: PricingVendor[];
 }
 
+export type PricingModelGroupsDataGroupProviders = {
+  [key: string]: GroupDataPolicy;
+};
+
 export type PricingModelGroupsDataGroupRatio = { [key: string]: number };
 
 /**
@@ -2306,7 +2429,9 @@ export type PricingModelGroupsDataGroupRatio = { [key: string]: number };
 export interface PricingModelGroupsData {
   auto_chain: string[];
   enable_groups: string[];
+  group_providers: PricingModelGroupsDataGroupProviders;
   group_ratio: PricingModelGroupsDataGroupRatio;
+  own_purpose?: OwnPurposeSummary;
 }
 
 export interface PricingVendorModel {
@@ -2324,6 +2449,88 @@ export interface PricingVendorModel {
 export interface PricingVendorsData {
   model_vendors: PricingVendorModel[];
   vendor_names: string[];
+}
+
+export interface ProviderConsentGrantData {
+  /** @nullable */
+  granted: string[] | null;
+}
+
+/**
+ * ProviderConsentGrantRequest schema
+ */
+export interface ProviderConsentGrantRequest {
+  /**
+   * @nullable
+   * @items.maxLength 500
+   */
+  aliases: string[] | null;
+  /** @maxLength 16 */
+  locale: string;
+  /** @maxLength 255 */
+  model: string;
+  /** @maxLength 20000 */
+  text: string;
+}
+
+export interface ProviderConsentModelItem {
+  active: boolean;
+  active_channels: number;
+  channels: number;
+  name: string;
+}
+
+export interface ProviderConsentItem {
+  active: boolean;
+  active_channel_count: number;
+  active_lane_count: number;
+  active_model_count: number;
+  alias: string;
+  channel_count: number;
+  country: string;
+  given_at?: number;
+  label: string;
+  lane_count: number;
+  model_count: number;
+  /** @nullable */
+  model_details: ProviderConsentModelItem[] | null;
+  /** @nullable */
+  models: string[] | null;
+  onward_unvetted: boolean;
+  practice: string;
+  status: string;
+  /** @nullable */
+  tags: string[] | null;
+  trains_or_retains: boolean;
+  unsafe: boolean;
+}
+
+export interface ProviderOtherItem {
+  active: boolean;
+  country: string;
+  label: string;
+  onward_unvetted: boolean;
+  practice: string;
+  reason: string;
+  unsafe: boolean;
+}
+
+export interface ProviderConsentListData {
+  /** @nullable */
+  covered?: boolean | null;
+  model?: string;
+  /** @nullable */
+  other_providers?: ProviderOtherItem[] | null;
+  /** @nullable */
+  providers: ProviderConsentItem[] | null;
+}
+
+/**
+ * ProviderConsentRevokeRequest schema
+ */
+export interface ProviderConsentRevokeRequest {
+  /** @maxLength 16 */
+  alias: string;
 }
 
 export interface Summary {
@@ -2466,11 +2673,20 @@ export interface RefreshCodexData {
   last_refresh: string;
 }
 
+export type RegisterRequestCustomerType =
+  (typeof RegisterRequestCustomerType)[keyof typeof RegisterRequestCustomerType];
+
+export const RegisterRequestCustomerType = {
+  consumer: "consumer",
+  business: "business",
+} as const;
+
 /**
  * RegisterRequest schema
  */
 export interface RegisterRequest {
   aff_code?: string;
+  customer_type?: RegisterRequestCustomerType;
   /** @maxLength 50 */
   email?: string;
   /**
@@ -2478,6 +2694,12 @@ export interface RegisterRequest {
    * @maxLength 72
    */
   password: string;
+  /** @maxLength 16 */
+  terms_locale?: string;
+  /** @maxLength 20000 */
+  terms_text?: string;
+  /** @maxLength 16 */
+  terms_version?: string;
   /** @maxLength 64 */
   username: string;
   verification_code?: string;
@@ -2821,10 +3043,12 @@ export interface TokenResponse {
   accessed_time: number;
   /** @nullable */
   allow_ips: string | null;
+  allow_user_quota_query: boolean;
   /** @nullable */
   auto_groups: string[] | null;
   created_time: number;
   cross_group_retry: boolean;
+  default_reasoning_effort: string;
   expired_time: number;
   group: string;
   group_mapping: string;
@@ -2863,6 +3087,24 @@ export interface ResponseDtoAffinityCacheClearData {
  */
 export interface ResponseDtoApiResponse {
   data: ApiResponse;
+  message: string;
+  success: boolean;
+}
+
+/**
+ * Response_dto.AuthRotationData schema
+ */
+export interface ResponseDtoAuthRotationData {
+  data: AuthRotationData;
+  message: string;
+  success: boolean;
+}
+
+/**
+ * Response_dto.BackupCodesData schema
+ */
+export interface ResponseDtoBackupCodesData {
+  data: BackupCodesData;
   message: string;
   success: boolean;
 }
@@ -3111,6 +3353,15 @@ export interface ResponseDtoFixAbilityData {
 }
 
 /**
+ * Response_dto.FreeConsentListData schema
+ */
+export interface ResponseDtoFreeConsentListData {
+  data: FreeConsentListData;
+  message: string;
+  success: boolean;
+}
+
+/**
  * Response_dto.GrantDiscordQuotaData schema
  */
 export interface ResponseDtoGrantDiscordQuotaData {
@@ -3232,6 +3483,15 @@ export interface ResponseDtoOAuthExchangeData {
  */
 export interface ResponseDtoOllamaVersionData {
   data: OllamaVersionData;
+  message: string;
+  success: boolean;
+}
+
+/**
+ * Response_dto.OwnPurposeObjectionData schema
+ */
+export interface ResponseDtoOwnPurposeObjectionData {
+  data: OwnPurposeObjectionData;
   message: string;
   success: boolean;
 }
@@ -3480,6 +3740,7 @@ export interface TopUp {
   payment_method: string;
   payment_provider: string;
   provider_payment_id: string;
+  reversed_quota: number;
   status: string;
   trade_no: string;
   user_id: number;
@@ -3520,6 +3781,8 @@ export interface User {
   aff_quota: number;
   created_at: number;
   creem_customer: string;
+  customer_type: string;
+  customer_type_at: number;
   discord_id: string;
   /** @maxLength 20 */
   display_name: string;
@@ -3632,10 +3895,62 @@ export interface ResponseDtoPerformanceStats {
 }
 
 /**
+ * Response_dto.ProviderConsentGrantData schema
+ */
+export interface ResponseDtoProviderConsentGrantData {
+  data: ProviderConsentGrantData;
+  message: string;
+  success: boolean;
+}
+
+/**
+ * Response_dto.ProviderConsentListData schema
+ */
+export interface ResponseDtoProviderConsentListData {
+  data: ProviderConsentListData;
+  message: string;
+  success: boolean;
+}
+
+/**
  * Response_dto.RefreshCodexData schema
  */
 export interface ResponseDtoRefreshCodexData {
   data: RefreshCodexData;
+  message: string;
+  success: boolean;
+}
+
+export interface SecurityProof {
+  expires_at: number;
+  method: string;
+  proof_token: string;
+  scope: string;
+}
+
+/**
+ * Response_dto.SecurityProof schema
+ */
+export interface ResponseDtoSecurityProof {
+  data: SecurityProof;
+  message: string;
+  success: boolean;
+}
+
+export interface Setup2FAResponse {
+  /** @nullable */
+  backup_codes: string[] | null;
+  expires_at: number;
+  flow_token: string;
+  qr_code_data: string;
+  secret: string;
+}
+
+/**
+ * Response_dto.Setup2FAResponse schema
+ */
+export interface ResponseDtoSetup2FAResponse {
+  data: Setup2FAResponse;
   message: string;
   success: boolean;
 }
@@ -3671,6 +3986,9 @@ export interface StatusData {
   /** @nullable */
   chats: StatusDataChatsItem[] | null;
   checkin_enabled: boolean;
+  consent_enforced: boolean;
+  /** @nullable */
+  consent_enforced_models: string[] | null;
   custom_currency_exchange_rate: number;
   custom_currency_symbol: string;
   /** @nullable */
@@ -3699,6 +4017,8 @@ export interface StatusData {
   linuxdo_client_id: string;
   linuxdo_minimum_trust_level: number;
   linuxdo_oauth: boolean;
+  log_export_enabled: boolean;
+  log_max_range_days: number;
   logo: string;
   mj_notify_enabled: boolean;
   oidc_authorization_endpoint: string;
@@ -3779,6 +4099,20 @@ export interface ResponseDtoSubscriptionActionData {
   success: boolean;
 }
 
+export interface TermsAcceptanceData {
+  accepted_at: number;
+  version: string;
+}
+
+/**
+ * Response_dto.TermsAcceptanceData schema
+ */
+export interface ResponseDtoTermsAcceptanceData {
+  data: TermsAcceptanceData;
+  message: string;
+  success: boolean;
+}
+
 export interface TestConnectionResponse {
   hardware_count: number;
   total_available: number;
@@ -3835,6 +4169,11 @@ export interface ResponseDtoTokenAutoGroupsData {
   success: boolean;
 }
 
+export interface TokenUserQuota {
+  total_available: number;
+  total_used: number;
+}
+
 export type TokenUsageDataModelLimitsAnyOf = { [key: string]: boolean };
 
 /**
@@ -3853,6 +4192,7 @@ export interface TokenUsageData {
   total_granted: number;
   total_used: number;
   unlimited_quota: boolean;
+  user_quota?: TokenUserQuota;
 }
 
 /**
@@ -3933,6 +4273,21 @@ export interface ResponseDtoTransferDiscordQuotaData {
   success: boolean;
 }
 
+export interface TwoFAStatusData {
+  backup_codes_remaining?: number;
+  enabled: boolean;
+  locked: boolean;
+}
+
+/**
+ * Response_dto.TwoFAStatusData schema
+ */
+export interface ResponseDtoTwoFAStatusData {
+  data: TwoFAStatusData;
+  message: string;
+  success: boolean;
+}
+
 export interface UpdateNameResponse {
   id: string;
   message: string;
@@ -3973,6 +4328,8 @@ export interface UserSelfData {
   aff_count: number;
   aff_history_quota: number;
   aff_quota: number;
+  customer_type: string;
+  customer_type_at: number;
   discord_id: string;
   display_name: string;
   email: string;
@@ -4008,16 +4365,31 @@ export interface ResponseDtoUserSelfData {
   success: boolean;
 }
 
-export interface VerificationStatusResponse {
-  expires_at?: number;
-  verified: boolean;
+export interface VerificationMethodOption {
+  available: boolean;
+  method: string;
+  reason?: string;
+}
+
+export interface VerificationOAuthProvider {
+  name: string;
+  slug: string;
+}
+
+export interface VerificationRequirements {
+  /** @nullable */
+  methods: VerificationMethodOption[] | null;
+  /** @nullable */
+  oauth_providers: VerificationOAuthProvider[] | null;
+  password_encryption_enabled: boolean;
+  scope: string;
 }
 
 /**
- * Response_dto.VerificationStatusResponse schema
+ * Response_dto.VerificationRequirements schema
  */
-export interface ResponseDtoVerificationStatusResponse {
-  data: VerificationStatusResponse;
+export interface ResponseDtoVerificationRequirements {
+  data: VerificationRequirements;
   message: string;
   success: boolean;
 }
@@ -4079,7 +4451,11 @@ export interface ResponseMapIntArrayString {
 export interface UserGroupInfo {
   desc: string;
   online: boolean;
+  prompts?: string;
   ratio: unknown;
+  seat_country?: string;
+  transfer?: string;
+  unsafe_third_country: boolean;
 }
 
 export type ResponseMapStringDtoUserGroupInfoDataAnyOf = {
@@ -4200,9 +4576,21 @@ export interface ResponsePerfMetricsQueryResult {
   success: boolean;
 }
 
+export type SummaryAllResultRecentSuccessSeriesAnyOf = {
+  [key: string]: SuccessRatePoint[];
+};
+
+/**
+ * @nullable
+ */
+export type SummaryAllResultRecentSuccessSeries =
+  SummaryAllResultRecentSuccessSeriesAnyOf | null;
+
 export interface SummaryAllResult {
   /** @nullable */
   models: ModelSummary[] | null;
+  /** @nullable */
+  recent_success_series?: SummaryAllResultRecentSuccessSeries;
   summary: Summary;
   window_end: number;
   window_start: number;
@@ -4350,6 +4738,18 @@ export interface TaskResponseDoc {
 }
 
 /**
+ * TermsAcceptRequest schema
+ */
+export interface TermsAcceptRequest {
+  /** @maxLength 16 */
+  locale: string;
+  /** @maxLength 20000 */
+  text: string;
+  /** @maxLength 16 */
+  version: string;
+}
+
+/**
  * TestChannelResponse schema
  */
 export interface TestChannelResponse {
@@ -4403,6 +4803,19 @@ export interface TransferDiscordQuotaRequest {
   from_discord_id: string;
   quota: number;
   to_discord_id: string;
+}
+
+/**
+ * UniversalVerifyRequest schema
+ */
+export interface UniversalVerifyRequest {
+  code?: string;
+  context?: unknown;
+  encryption_key_id?: string;
+  method: string;
+  password?: string;
+  password_encrypted?: string;
+  scope: string;
 }
 
 /**
@@ -4489,9 +4902,13 @@ export interface UpdateTokenRequest {
   /** @nullable */
   allow_ips: string | null;
   /** @nullable */
+  allow_user_quota_query: boolean | null;
+  /** @nullable */
   auto_groups: string[] | null;
   /** @nullable */
   cross_group_retry: boolean | null;
+  /** @nullable */
+  default_reasoning_effort: string | null;
   expired_time: number;
   group: string;
   /** @nullable */
@@ -5174,7 +5591,7 @@ export type GenerateOAuthCodeQueryParams = {
    */
   provider?: string;
   /**
-   * OAuth flow intent: login or bind
+   * OAuth flow intent: login, bind or verify
    */
   intent?: string;
   /**
@@ -5189,6 +5606,30 @@ export type GenerateOAuthCodeQueryParams = {
    * Set to 'bind' to link OAuth provider to existing account (requires Authorization header)
    */
   action?: string;
+  /**
+   * Declared customer type for an account created by this login: consumer or business
+   */
+  customer_type?: string;
+  /**
+   * Step-up scope a verify intent proves (requires Authorization header)
+   */
+  scope?: string;
+  /**
+   * JSON object with the step-up context, for scopes that bind one
+   */
+  context?: string;
+  /**
+   * Terms of use version the signup page showed (YYYY-MM-DD), recorded as accepted on an account this login creates
+   */
+  terms_version?: string;
+  /**
+   * Locale of the terms notice shown
+   */
+  terms_locale?: string;
+  /**
+   * The terms notice exactly as shown
+   */
+  terms_text?: string;
 };
 
 export type GenerateOAuthCodeParams = {
@@ -5570,6 +6011,10 @@ export type SearchUsersParams = {
    */
   negative_quota?: boolean;
   /**
+   * Only users with consent enforcement switched on for their account
+   */
+  consent_enforced?: boolean;
+  /**
    * Field to sort by
    */
   sort_by?: string;
@@ -5640,6 +6085,13 @@ export type SendEmailVerificationParams = {
    * Email address
    */
   email?: string;
+};
+
+export type GetVerificationMethodsParams = {
+  /**
+   * Step-up scope to list the verification methods for
+   */
+  scope: string;
 };
 
 export type getOAuthProtectedResourceMetadataResponse200ApplicationJson = {
@@ -9718,6 +10170,40 @@ export const getChannelAffinityUsageCacheStats = async (
   );
 };
 
+export type exportAllLogsResponse200ApplicationJson = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type exportAllLogsResponse200ApplicationXml = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type exportAllLogsResponseSuccess = (
+  | exportAllLogsResponse200ApplicationJson
+  | exportAllLogsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type exportAllLogsResponse = exportAllLogsResponseSuccess;
+
+export const getExportAllLogsUrl = () => {
+  return `/api/log/export`;
+};
+
+/**
+ * @summary Export All Logs
+ */
+export const exportAllLogs = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<exportAllLogsResponse> => {
+  return customFetch<exportAllLogsResponse>(getExportAllLogsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export type searchAllLogsResponse200ApplicationJson = {
   data: MessageResponse;
   status: 200;
@@ -9793,6 +10279,40 @@ export const getUserLogs = async (
   options?: Parameters<typeof customFetch>[1],
 ): Promise<getUserLogsResponse> => {
   return customFetch<getUserLogsResponse>(getGetUserLogsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export type exportUserLogsResponse200ApplicationJson = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type exportUserLogsResponse200ApplicationXml = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type exportUserLogsResponseSuccess = (
+  | exportUserLogsResponse200ApplicationJson
+  | exportUserLogsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type exportUserLogsResponse = exportUserLogsResponseSuccess;
+
+export const getExportUserLogsUrl = () => {
+  return `/api/log/self/export`;
+};
+
+/**
+ * @summary Export User Logs
+ */
+export const exportUserLogs = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<exportUserLogsResponse> => {
+  return customFetch<exportUserLogsResponse>(getExportUserLogsUrl(), {
     ...options,
     method: "GET",
   });
@@ -16025,12 +16545,12 @@ export const updateUser = async (
 };
 
 export type regenerateBackupCodesResponse200ApplicationJson = {
-  data: ApiResponse;
+  data: ResponseDtoBackupCodesData;
   status: 200;
 };
 
 export type regenerateBackupCodesResponse200ApplicationXml = {
-  data: ApiResponse;
+  data: ResponseDtoBackupCodesData;
   status: 200;
 };
 
@@ -16063,12 +16583,12 @@ export const regenerateBackupCodes = async (
 };
 
 export type disable2FAResponse200ApplicationJson = {
-  data: ApiResponse;
+  data: ResponseDtoAuthRotationData;
   status: 200;
 };
 
 export type disable2FAResponse200ApplicationXml = {
-  data: ApiResponse;
+  data: ResponseDtoAuthRotationData;
   status: 200;
 };
 
@@ -16096,12 +16616,12 @@ export const disable2FA = async (
 };
 
 export type enable2FAResponse200ApplicationJson = {
-  data: ApiResponse;
+  data: ResponseDtoAuthRotationData;
   status: 200;
 };
 
 export type enable2FAResponse200ApplicationXml = {
-  data: ApiResponse;
+  data: ResponseDtoAuthRotationData;
   status: 200;
 };
 
@@ -16120,21 +16640,48 @@ export const getEnable2FAUrl = () => {
  * @summary Enable2 F A
  */
 export const enable2FA = async (
+  verify2FARequest: Verify2FARequest,
   options?: Parameters<typeof customFetch>[1],
 ): Promise<enable2FAResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   return customFetch<enable2FAResponse>(getEnable2FAUrl(), {
     ...options,
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(verify2FARequest),
   });
 };
 
 export type setup2FAResponse200ApplicationJson = {
-  data: ApiResponse;
+  data: ResponseDtoSetup2FAResponse;
   status: 200;
 };
 
 export type setup2FAResponse200ApplicationXml = {
-  data: ApiResponse;
+  data: ResponseDtoSetup2FAResponse;
   status: 200;
 };
 
@@ -16196,12 +16743,12 @@ export const admin2FAStats = async (
 };
 
 export type get2FAStatusResponse200ApplicationJson = {
-  data: ApiResponse;
+  data: ResponseDtoTwoFAStatusData;
   status: 200;
 };
 
 export type get2FAStatusResponse200ApplicationXml = {
-  data: ApiResponse;
+  data: ResponseDtoTwoFAStatusData;
   status: 200;
 };
 
@@ -16225,6 +16772,257 @@ export const get2FAStatus = async (
   return customFetch<get2FAStatusResponse>(getGet2FAStatusUrl(), {
     ...options,
     method: "GET",
+  });
+};
+
+export type listAccessTokensResponse200ApplicationJson = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type listAccessTokensResponse200ApplicationXml = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type listAccessTokensResponseSuccess = (
+  | listAccessTokensResponse200ApplicationJson
+  | listAccessTokensResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type listAccessTokensResponse = listAccessTokensResponseSuccess;
+
+export const getListAccessTokensUrl = () => {
+  return `/api/user/access_tokens`;
+};
+
+/**
+ * @summary List Access Tokens
+ */
+export const listAccessTokens = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<listAccessTokensResponse> => {
+  return customFetch<listAccessTokensResponse>(getListAccessTokensUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export type createAccessTokenResponse200ApplicationJson = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type createAccessTokenResponse200ApplicationXml = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type createAccessTokenResponseSuccess = (
+  | createAccessTokenResponse200ApplicationJson
+  | createAccessTokenResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type createAccessTokenResponse = createAccessTokenResponseSuccess;
+
+export const getCreateAccessTokenUrl = () => {
+  return `/api/user/access_tokens`;
+};
+
+/**
+ * @summary Create Access Token
+ */
+export const createAccessToken = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<createAccessTokenResponse> => {
+  return customFetch<createAccessTokenResponse>(getCreateAccessTokenUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export type getAccessTokenCatalogResponse200ApplicationJson = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type getAccessTokenCatalogResponse200ApplicationXml = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type getAccessTokenCatalogResponseSuccess = (
+  | getAccessTokenCatalogResponse200ApplicationJson
+  | getAccessTokenCatalogResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getAccessTokenCatalogResponse =
+  getAccessTokenCatalogResponseSuccess;
+
+export const getGetAccessTokenCatalogUrl = () => {
+  return `/api/user/access_tokens/catalog`;
+};
+
+/**
+ * @summary Get Access Token Catalog
+ */
+export const getAccessTokenCatalog = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getAccessTokenCatalogResponse> => {
+  return customFetch<getAccessTokenCatalogResponse>(
+    getGetAccessTokenCatalogUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export type revokeLegacyAccessTokenResponse200ApplicationJson = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type revokeLegacyAccessTokenResponse200ApplicationXml = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type revokeLegacyAccessTokenResponseSuccess = (
+  | revokeLegacyAccessTokenResponse200ApplicationJson
+  | revokeLegacyAccessTokenResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type revokeLegacyAccessTokenResponse =
+  revokeLegacyAccessTokenResponseSuccess;
+
+export const getRevokeLegacyAccessTokenUrl = () => {
+  return `/api/user/access_tokens/legacy`;
+};
+
+/**
+ * @summary Revoke Legacy Access Token
+ */
+export const revokeLegacyAccessToken = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<revokeLegacyAccessTokenResponse> => {
+  return customFetch<revokeLegacyAccessTokenResponse>(
+    getRevokeLegacyAccessTokenUrl(),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export type getAccessTokenScopesResponse200ApplicationJson = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type getAccessTokenScopesResponse200ApplicationXml = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type getAccessTokenScopesResponseSuccess = (
+  | getAccessTokenScopesResponse200ApplicationJson
+  | getAccessTokenScopesResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getAccessTokenScopesResponse = getAccessTokenScopesResponseSuccess;
+
+export const getGetAccessTokenScopesUrl = () => {
+  return `/api/user/access_tokens/scopes`;
+};
+
+/**
+ * @summary Get Access Token Scopes
+ */
+export const getAccessTokenScopes = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getAccessTokenScopesResponse> => {
+  return customFetch<getAccessTokenScopesResponse>(
+    getGetAccessTokenScopesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export type deleteAccessTokenResponse200ApplicationJson = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type deleteAccessTokenResponse200ApplicationXml = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type deleteAccessTokenResponseSuccess = (
+  | deleteAccessTokenResponse200ApplicationJson
+  | deleteAccessTokenResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type deleteAccessTokenResponse = deleteAccessTokenResponseSuccess;
+
+export const getDeleteAccessTokenUrl = (id: string) => {
+  return `/api/user/access_tokens/${id}`;
+};
+
+/**
+ * @summary Delete Access Token
+ */
+export const deleteAccessToken = async (
+  id: string,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<deleteAccessTokenResponse> => {
+  return customFetch<deleteAccessTokenResponse>(getDeleteAccessTokenUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export type updateAccessTokenResponse200ApplicationJson = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type updateAccessTokenResponse200ApplicationXml = {
+  data: ApiResponse;
+  status: 200;
+};
+
+export type updateAccessTokenResponseSuccess = (
+  | updateAccessTokenResponse200ApplicationJson
+  | updateAccessTokenResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type updateAccessTokenResponse = updateAccessTokenResponseSuccess;
+
+export const getUpdateAccessTokenUrl = (id: string) => {
+  return `/api/user/access_tokens/${id}`;
+};
+
+/**
+ * @summary Update Access Token
+ */
+export const updateAccessToken = async (
+  id: string,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<updateAccessTokenResponse> => {
+  return customFetch<updateAccessTokenResponse>(getUpdateAccessTokenUrl(id), {
+    ...options,
+    method: "PATCH",
   });
 };
 
@@ -17076,6 +17874,444 @@ export const getUserGroups = async (
   });
 };
 
+export type revokeGuestFreeConsentResponse200ApplicationJson = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type revokeGuestFreeConsentResponse200ApplicationXml = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type revokeGuestFreeConsentResponseSuccess = (
+  | revokeGuestFreeConsentResponse200ApplicationJson
+  | revokeGuestFreeConsentResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type revokeGuestFreeConsentResponse =
+  revokeGuestFreeConsentResponseSuccess;
+
+export const getRevokeGuestFreeConsentUrl = () => {
+  return `/api/user/guest/free-consents`;
+};
+
+/**
+ * @summary Revoke Guest Free Consent
+ */
+export const revokeGuestFreeConsent = async (
+  freeConsentRevokeRequest: FreeConsentRevokeRequest,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<revokeGuestFreeConsentResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<revokeGuestFreeConsentResponse>(
+    getRevokeGuestFreeConsentUrl(),
+    {
+      ...options,
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(freeConsentRevokeRequest),
+    },
+  );
+};
+
+export type getGuestFreeConsentsResponse200ApplicationJson = {
+  data: ResponseDtoFreeConsentListData;
+  status: 200;
+};
+
+export type getGuestFreeConsentsResponse200ApplicationXml = {
+  data: ResponseDtoFreeConsentListData;
+  status: 200;
+};
+
+export type getGuestFreeConsentsResponseSuccess = (
+  | getGuestFreeConsentsResponse200ApplicationJson
+  | getGuestFreeConsentsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getGuestFreeConsentsResponse = getGuestFreeConsentsResponseSuccess;
+
+export const getGetGuestFreeConsentsUrl = () => {
+  return `/api/user/guest/free-consents`;
+};
+
+/**
+ * @summary Get Guest Free Consents
+ */
+export const getGuestFreeConsents = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getGuestFreeConsentsResponse> => {
+  return customFetch<getGuestFreeConsentsResponse>(
+    getGetGuestFreeConsentsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export type grantGuestFreeConsentResponse200ApplicationJson = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type grantGuestFreeConsentResponse200ApplicationXml = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type grantGuestFreeConsentResponseSuccess = (
+  | grantGuestFreeConsentResponse200ApplicationJson
+  | grantGuestFreeConsentResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type grantGuestFreeConsentResponse =
+  grantGuestFreeConsentResponseSuccess;
+
+export const getGrantGuestFreeConsentUrl = () => {
+  return `/api/user/guest/free-consents`;
+};
+
+/**
+ * @summary Grant Guest Free Consent
+ */
+export const grantGuestFreeConsent = async (
+  freeConsentGrantRequest: FreeConsentGrantRequest,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<grantGuestFreeConsentResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<grantGuestFreeConsentResponse>(
+    getGrantGuestFreeConsentUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(freeConsentGrantRequest),
+    },
+  );
+};
+
+export type getGuestOwnPurposeObjectionResponse200ApplicationJson = {
+  data: ResponseDtoOwnPurposeObjectionData;
+  status: 200;
+};
+
+export type getGuestOwnPurposeObjectionResponse200ApplicationXml = {
+  data: ResponseDtoOwnPurposeObjectionData;
+  status: 200;
+};
+
+export type getGuestOwnPurposeObjectionResponseSuccess = (
+  | getGuestOwnPurposeObjectionResponse200ApplicationJson
+  | getGuestOwnPurposeObjectionResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getGuestOwnPurposeObjectionResponse =
+  getGuestOwnPurposeObjectionResponseSuccess;
+
+export const getGetGuestOwnPurposeObjectionUrl = () => {
+  return `/api/user/guest/own-purpose-objection`;
+};
+
+/**
+ * @summary Get Guest Own Purpose Objection
+ */
+export const getGuestOwnPurposeObjection = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getGuestOwnPurposeObjectionResponse> => {
+  return customFetch<getGuestOwnPurposeObjectionResponse>(
+    getGetGuestOwnPurposeObjectionUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export type setGuestOwnPurposeObjectionResponse200ApplicationJson = {
+  data: ResponseDtoOwnPurposeObjectionData;
+  status: 200;
+};
+
+export type setGuestOwnPurposeObjectionResponse200ApplicationXml = {
+  data: ResponseDtoOwnPurposeObjectionData;
+  status: 200;
+};
+
+export type setGuestOwnPurposeObjectionResponseSuccess = (
+  | setGuestOwnPurposeObjectionResponse200ApplicationJson
+  | setGuestOwnPurposeObjectionResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type setGuestOwnPurposeObjectionResponse =
+  setGuestOwnPurposeObjectionResponseSuccess;
+
+export const getSetGuestOwnPurposeObjectionUrl = () => {
+  return `/api/user/guest/own-purpose-objection`;
+};
+
+/**
+ * @summary Set Guest Own Purpose Objection
+ */
+export const setGuestOwnPurposeObjection = async (
+  ownPurposeObjectionRequest: OwnPurposeObjectionRequest,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<setGuestOwnPurposeObjectionResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<setGuestOwnPurposeObjectionResponse>(
+    getSetGuestOwnPurposeObjectionUrl(),
+    {
+      ...options,
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(ownPurposeObjectionRequest),
+    },
+  );
+};
+
+export type revokeGuestProviderConsentResponse200ApplicationJson = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type revokeGuestProviderConsentResponse200ApplicationXml = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type revokeGuestProviderConsentResponseSuccess = (
+  | revokeGuestProviderConsentResponse200ApplicationJson
+  | revokeGuestProviderConsentResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type revokeGuestProviderConsentResponse =
+  revokeGuestProviderConsentResponseSuccess;
+
+export const getRevokeGuestProviderConsentUrl = () => {
+  return `/api/user/guest/provider-consents`;
+};
+
+/**
+ * @summary Revoke Guest Provider Consent
+ */
+export const revokeGuestProviderConsent = async (
+  providerConsentRevokeRequest: ProviderConsentRevokeRequest,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<revokeGuestProviderConsentResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<revokeGuestProviderConsentResponse>(
+    getRevokeGuestProviderConsentUrl(),
+    {
+      ...options,
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(providerConsentRevokeRequest),
+    },
+  );
+};
+
+export type getGuestProviderConsentsResponse200ApplicationJson = {
+  data: ResponseDtoProviderConsentListData;
+  status: 200;
+};
+
+export type getGuestProviderConsentsResponse200ApplicationXml = {
+  data: ResponseDtoProviderConsentListData;
+  status: 200;
+};
+
+export type getGuestProviderConsentsResponseSuccess = (
+  | getGuestProviderConsentsResponse200ApplicationJson
+  | getGuestProviderConsentsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getGuestProviderConsentsResponse =
+  getGuestProviderConsentsResponseSuccess;
+
+export const getGetGuestProviderConsentsUrl = () => {
+  return `/api/user/guest/provider-consents`;
+};
+
+/**
+ * @summary Get Guest Provider Consents
+ */
+export const getGuestProviderConsents = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getGuestProviderConsentsResponse> => {
+  return customFetch<getGuestProviderConsentsResponse>(
+    getGetGuestProviderConsentsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export type grantGuestProviderConsentsResponse200ApplicationJson = {
+  data: ResponseDtoProviderConsentGrantData;
+  status: 200;
+};
+
+export type grantGuestProviderConsentsResponse200ApplicationXml = {
+  data: ResponseDtoProviderConsentGrantData;
+  status: 200;
+};
+
+export type grantGuestProviderConsentsResponseSuccess = (
+  | grantGuestProviderConsentsResponse200ApplicationJson
+  | grantGuestProviderConsentsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type grantGuestProviderConsentsResponse =
+  grantGuestProviderConsentsResponseSuccess;
+
+export const getGrantGuestProviderConsentsUrl = () => {
+  return `/api/user/guest/provider-consents`;
+};
+
+/**
+ * @summary Grant Guest Provider Consents
+ */
+export const grantGuestProviderConsents = async (
+  providerConsentGrantRequest: ProviderConsentGrantRequest,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<grantGuestProviderConsentsResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<grantGuestProviderConsentsResponse>(
+    getGrantGuestProviderConsentsUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(providerConsentGrantRequest),
+    },
+  );
+};
+
 export type loginResponse200ApplicationJson = {
   data: ResponseDtoLoginData;
   status: 200;
@@ -17862,12 +19098,12 @@ export const partnerVoidRedemption = async (
 };
 
 export type passkeyDeleteResponse200ApplicationJson = {
-  data: MessageResponse;
+  data: ResponseDtoAuthRotationData;
   status: 200;
 };
 
 export type passkeyDeleteResponse200ApplicationXml = {
-  data: MessageResponse;
+  data: ResponseDtoAuthRotationData;
   status: 200;
 };
 
@@ -18035,12 +19271,12 @@ export const passkeyRegisterBegin = async (
 };
 
 export type passkeyRegisterFinishResponse200ApplicationJson = {
-  data: MessageResponse;
+  data: ResponseDtoAuthRotationData;
   status: 200;
 };
 
 export type passkeyRegisterFinishResponse200ApplicationXml = {
-  data: MessageResponse;
+  data: ResponseDtoAuthRotationData;
   status: 200;
 };
 
@@ -18061,13 +19297,40 @@ export const getPasskeyRegisterFinishUrl = () => {
  * @summary Passkey Register Finish
  */
 export const passkeyRegisterFinish = async (
+  passkeyFinishRequest: PasskeyFinishRequest,
   options?: Parameters<typeof customFetch>[1],
 ): Promise<passkeyRegisterFinishResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   return customFetch<passkeyRegisterFinishResponse>(
     getPasskeyRegisterFinishUrl(),
     {
       ...options,
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(passkeyFinishRequest),
     },
   );
 };
@@ -18098,21 +19361,48 @@ export const getPasskeyVerifyBeginUrl = () => {
  * @summary Passkey Verify Begin
  */
 export const passkeyVerifyBegin = async (
+  passkeyVerifyBeginRequest: PasskeyVerifyBeginRequest,
   options?: Parameters<typeof customFetch>[1],
 ): Promise<passkeyVerifyBeginResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   return customFetch<passkeyVerifyBeginResponse>(getPasskeyVerifyBeginUrl(), {
     ...options,
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(passkeyVerifyBeginRequest),
   });
 };
 
 export type passkeyVerifyFinishResponse200ApplicationJson = {
-  data: MessageResponse;
+  data: ResponseDtoSecurityProof;
   status: 200;
 };
 
 export type passkeyVerifyFinishResponse200ApplicationXml = {
-  data: MessageResponse;
+  data: ResponseDtoSecurityProof;
   status: 200;
 };
 
@@ -18132,11 +19422,38 @@ export const getPasskeyVerifyFinishUrl = () => {
  * @summary Passkey Verify Finish
  */
 export const passkeyVerifyFinish = async (
+  passkeyFinishRequest: PasskeyFinishRequest,
   options?: Parameters<typeof customFetch>[1],
 ): Promise<passkeyVerifyFinishResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   return customFetch<passkeyVerifyFinishResponse>(getPasskeyVerifyFinishUrl(), {
     ...options,
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(passkeyFinishRequest),
   });
 };
 
@@ -18479,6 +19796,162 @@ export const updateSelf = async (
   });
 };
 
+export type revokeFreeConsentResponse200ApplicationJson = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type revokeFreeConsentResponse200ApplicationXml = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type revokeFreeConsentResponseSuccess = (
+  | revokeFreeConsentResponse200ApplicationJson
+  | revokeFreeConsentResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type revokeFreeConsentResponse = revokeFreeConsentResponseSuccess;
+
+export const getRevokeFreeConsentUrl = () => {
+  return `/api/user/self/free-consents`;
+};
+
+/**
+ * @summary Revoke Free Consent
+ */
+export const revokeFreeConsent = async (
+  freeConsentRevokeRequest: FreeConsentRevokeRequest,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<revokeFreeConsentResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<revokeFreeConsentResponse>(getRevokeFreeConsentUrl(), {
+    ...options,
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(freeConsentRevokeRequest),
+  });
+};
+
+export type getFreeConsentsResponse200ApplicationJson = {
+  data: ResponseDtoFreeConsentListData;
+  status: 200;
+};
+
+export type getFreeConsentsResponse200ApplicationXml = {
+  data: ResponseDtoFreeConsentListData;
+  status: 200;
+};
+
+export type getFreeConsentsResponseSuccess = (
+  | getFreeConsentsResponse200ApplicationJson
+  | getFreeConsentsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getFreeConsentsResponse = getFreeConsentsResponseSuccess;
+
+export const getGetFreeConsentsUrl = () => {
+  return `/api/user/self/free-consents`;
+};
+
+/**
+ * @summary Get Free Consents
+ */
+export const getFreeConsents = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getFreeConsentsResponse> => {
+  return customFetch<getFreeConsentsResponse>(getGetFreeConsentsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export type grantFreeConsentResponse200ApplicationJson = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type grantFreeConsentResponse200ApplicationXml = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type grantFreeConsentResponseSuccess = (
+  | grantFreeConsentResponse200ApplicationJson
+  | grantFreeConsentResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type grantFreeConsentResponse = grantFreeConsentResponseSuccess;
+
+export const getGrantFreeConsentUrl = () => {
+  return `/api/user/self/free-consents`;
+};
+
+/**
+ * @summary Grant Free Consent
+ */
+export const grantFreeConsent = async (
+  freeConsentGrantRequest: FreeConsentGrantRequest,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<grantFreeConsentResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<grantFreeConsentResponse>(getGrantFreeConsentUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(freeConsentGrantRequest),
+  });
+};
+
 export type getApiUserSelfGroupsResponse200ApplicationJson = {
   data: ResponseMapStringDtoUserGroupInfo;
   status: 200;
@@ -18514,6 +19987,367 @@ export const getApiUserSelfGroups = async (
       method: "GET",
     },
   );
+};
+
+export type getOwnPurposeObjectionResponse200ApplicationJson = {
+  data: ResponseDtoOwnPurposeObjectionData;
+  status: 200;
+};
+
+export type getOwnPurposeObjectionResponse200ApplicationXml = {
+  data: ResponseDtoOwnPurposeObjectionData;
+  status: 200;
+};
+
+export type getOwnPurposeObjectionResponseSuccess = (
+  | getOwnPurposeObjectionResponse200ApplicationJson
+  | getOwnPurposeObjectionResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getOwnPurposeObjectionResponse =
+  getOwnPurposeObjectionResponseSuccess;
+
+export const getGetOwnPurposeObjectionUrl = () => {
+  return `/api/user/self/own-purpose-objection`;
+};
+
+/**
+ * @summary Get Own Purpose Objection
+ */
+export const getOwnPurposeObjection = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getOwnPurposeObjectionResponse> => {
+  return customFetch<getOwnPurposeObjectionResponse>(
+    getGetOwnPurposeObjectionUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export type setOwnPurposeObjectionResponse200ApplicationJson = {
+  data: ResponseDtoOwnPurposeObjectionData;
+  status: 200;
+};
+
+export type setOwnPurposeObjectionResponse200ApplicationXml = {
+  data: ResponseDtoOwnPurposeObjectionData;
+  status: 200;
+};
+
+export type setOwnPurposeObjectionResponseSuccess = (
+  | setOwnPurposeObjectionResponse200ApplicationJson
+  | setOwnPurposeObjectionResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type setOwnPurposeObjectionResponse =
+  setOwnPurposeObjectionResponseSuccess;
+
+export const getSetOwnPurposeObjectionUrl = () => {
+  return `/api/user/self/own-purpose-objection`;
+};
+
+/**
+ * @summary Set Own Purpose Objection
+ */
+export const setOwnPurposeObjection = async (
+  ownPurposeObjectionRequest: OwnPurposeObjectionRequest,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<setOwnPurposeObjectionResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<setOwnPurposeObjectionResponse>(
+    getSetOwnPurposeObjectionUrl(),
+    {
+      ...options,
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(ownPurposeObjectionRequest),
+    },
+  );
+};
+
+export type revokeProviderConsentResponse200ApplicationJson = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type revokeProviderConsentResponse200ApplicationXml = {
+  data: ResponseDtoMessageResponse;
+  status: 200;
+};
+
+export type revokeProviderConsentResponseSuccess = (
+  | revokeProviderConsentResponse200ApplicationJson
+  | revokeProviderConsentResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type revokeProviderConsentResponse =
+  revokeProviderConsentResponseSuccess;
+
+export const getRevokeProviderConsentUrl = () => {
+  return `/api/user/self/provider-consents`;
+};
+
+/**
+ * @summary Revoke Provider Consent
+ */
+export const revokeProviderConsent = async (
+  providerConsentRevokeRequest: ProviderConsentRevokeRequest,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<revokeProviderConsentResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<revokeProviderConsentResponse>(
+    getRevokeProviderConsentUrl(),
+    {
+      ...options,
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(providerConsentRevokeRequest),
+    },
+  );
+};
+
+export type getProviderConsentsResponse200ApplicationJson = {
+  data: ResponseDtoProviderConsentListData;
+  status: 200;
+};
+
+export type getProviderConsentsResponse200ApplicationXml = {
+  data: ResponseDtoProviderConsentListData;
+  status: 200;
+};
+
+export type getProviderConsentsResponseSuccess = (
+  | getProviderConsentsResponse200ApplicationJson
+  | getProviderConsentsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getProviderConsentsResponse = getProviderConsentsResponseSuccess;
+
+export const getGetProviderConsentsUrl = () => {
+  return `/api/user/self/provider-consents`;
+};
+
+/**
+ * @summary Get Provider Consents
+ */
+export const getProviderConsents = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getProviderConsentsResponse> => {
+  return customFetch<getProviderConsentsResponse>(getGetProviderConsentsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export type grantProviderConsentsResponse200ApplicationJson = {
+  data: ResponseDtoProviderConsentGrantData;
+  status: 200;
+};
+
+export type grantProviderConsentsResponse200ApplicationXml = {
+  data: ResponseDtoProviderConsentGrantData;
+  status: 200;
+};
+
+export type grantProviderConsentsResponseSuccess = (
+  | grantProviderConsentsResponse200ApplicationJson
+  | grantProviderConsentsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type grantProviderConsentsResponse =
+  grantProviderConsentsResponseSuccess;
+
+export const getGrantProviderConsentsUrl = () => {
+  return `/api/user/self/provider-consents`;
+};
+
+/**
+ * @summary Grant Provider Consents
+ */
+export const grantProviderConsents = async (
+  providerConsentGrantRequest: ProviderConsentGrantRequest,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<grantProviderConsentsResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<grantProviderConsentsResponse>(
+    getGrantProviderConsentsUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(providerConsentGrantRequest),
+    },
+  );
+};
+
+export type getTermsAcceptanceResponse200ApplicationJson = {
+  data: ResponseDtoTermsAcceptanceData;
+  status: 200;
+};
+
+export type getTermsAcceptanceResponse200ApplicationXml = {
+  data: ResponseDtoTermsAcceptanceData;
+  status: 200;
+};
+
+export type getTermsAcceptanceResponseSuccess = (
+  | getTermsAcceptanceResponse200ApplicationJson
+  | getTermsAcceptanceResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getTermsAcceptanceResponse = getTermsAcceptanceResponseSuccess;
+
+export const getGetTermsAcceptanceUrl = () => {
+  return `/api/user/self/terms-acceptance`;
+};
+
+/**
+ * @summary Get Terms Acceptance
+ */
+export const getTermsAcceptance = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getTermsAcceptanceResponse> => {
+  return customFetch<getTermsAcceptanceResponse>(getGetTermsAcceptanceUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export type acceptTermsResponse200ApplicationJson = {
+  data: ResponseDtoTermsAcceptanceData;
+  status: 200;
+};
+
+export type acceptTermsResponse200ApplicationXml = {
+  data: ResponseDtoTermsAcceptanceData;
+  status: 200;
+};
+
+export type acceptTermsResponseSuccess = (
+  acceptTermsResponse200ApplicationJson | acceptTermsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type acceptTermsResponse = acceptTermsResponseSuccess;
+
+export const getAcceptTermsUrl = () => {
+  return `/api/user/self/terms-acceptance`;
+};
+
+/**
+ * @summary Accept Terms
+ */
+export const acceptTerms = async (
+  termsAcceptRequest: TermsAcceptRequest,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<acceptTermsResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<acceptTermsResponse>(getAcceptTermsUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(termsAcceptRequest),
+  });
 };
 
 export type updateTimeoutPreferenceResponse200ApplicationJson = {
@@ -18935,40 +20769,6 @@ export const requestStripePay = async (
   });
 };
 
-export type revokeAccessTokenResponse200ApplicationJson = {
-  data: ApiResponse;
-  status: 200;
-};
-
-export type revokeAccessTokenResponse200ApplicationXml = {
-  data: ApiResponse;
-  status: 200;
-};
-
-export type revokeAccessTokenResponseSuccess = (
-  | revokeAccessTokenResponse200ApplicationJson
-  | revokeAccessTokenResponse200ApplicationXml
-) & {
-  headers: Headers;
-};
-export type revokeAccessTokenResponse = revokeAccessTokenResponseSuccess;
-
-export const getRevokeAccessTokenUrl = () => {
-  return `/api/user/token`;
-};
-
-/**
- * @summary Revoke Access Token
- */
-export const revokeAccessToken = async (
-  options?: Parameters<typeof customFetch>[1],
-): Promise<revokeAccessTokenResponse> => {
-  return customFetch<revokeAccessTokenResponse>(getRevokeAccessTokenUrl(), {
-    ...options,
-    method: "DELETE",
-  });
-};
-
 export type generateAccessTokenResponse200ApplicationJson = {
   data: ResponseString;
   status: 200;
@@ -19001,81 +20801,6 @@ export const generateAccessToken = async (
     ...options,
     method: "GET",
   });
-};
-
-export type generateAccessTokenVerifiedResponse200ApplicationJson = {
-  data: ApiResponse;
-  status: 200;
-};
-
-export type generateAccessTokenVerifiedResponse200ApplicationXml = {
-  data: ApiResponse;
-  status: 200;
-};
-
-export type generateAccessTokenVerifiedResponseSuccess = (
-  | generateAccessTokenVerifiedResponse200ApplicationJson
-  | generateAccessTokenVerifiedResponse200ApplicationXml
-) & {
-  headers: Headers;
-};
-export type generateAccessTokenVerifiedResponse =
-  generateAccessTokenVerifiedResponseSuccess;
-
-export const getGenerateAccessTokenVerifiedUrl = () => {
-  return `/api/user/token`;
-};
-
-/**
- * @summary Generate Access Token Verified
- */
-export const generateAccessTokenVerified = async (
-  options?: Parameters<typeof customFetch>[1],
-): Promise<generateAccessTokenVerifiedResponse> => {
-  return customFetch<generateAccessTokenVerifiedResponse>(
-    getGenerateAccessTokenVerifiedUrl(),
-    {
-      ...options,
-      method: "POST",
-    },
-  );
-};
-
-export type getAccessTokenStatusResponse200ApplicationJson = {
-  data: ApiResponse;
-  status: 200;
-};
-
-export type getAccessTokenStatusResponse200ApplicationXml = {
-  data: ApiResponse;
-  status: 200;
-};
-
-export type getAccessTokenStatusResponseSuccess = (
-  | getAccessTokenStatusResponse200ApplicationJson
-  | getAccessTokenStatusResponse200ApplicationXml
-) & {
-  headers: Headers;
-};
-export type getAccessTokenStatusResponse = getAccessTokenStatusResponseSuccess;
-
-export const getGetAccessTokenStatusUrl = () => {
-  return `/api/user/token/status`;
-};
-
-/**
- * @summary Get Access Token Status
- */
-export const getAccessTokenStatus = async (
-  options?: Parameters<typeof customFetch>[1],
-): Promise<getAccessTokenStatusResponse> => {
-  return customFetch<getAccessTokenStatusResponse>(
-    getGetAccessTokenStatusUrl(),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
 };
 
 export type getAllTopUpsResponse200ApplicationJson = {
@@ -20128,12 +21853,12 @@ export const sendEmailVerification = async (
 };
 
 export type universalVerifyResponse200ApplicationJson = {
-  data: ResponseDtoVerificationStatusResponse;
+  data: ResponseDtoSecurityProof;
   status: 200;
 };
 
 export type universalVerifyResponse200ApplicationXml = {
-  data: ResponseDtoVerificationStatusResponse;
+  data: ResponseDtoSecurityProof;
   status: 200;
 };
 
@@ -20153,21 +21878,48 @@ export const getUniversalVerifyUrl = () => {
  * @summary Universal Verify
  */
 export const universalVerify = async (
+  universalVerifyRequest: UniversalVerifyRequest,
   options?: Parameters<typeof customFetch>[1],
 ): Promise<universalVerifyResponse> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   return customFetch<universalVerifyResponse>(getUniversalVerifyUrl(), {
     ...options,
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(universalVerifyRequest),
   });
 };
 
 export type getVerificationMethodsResponse200ApplicationJson = {
-  data: ApiResponse;
+  data: ResponseDtoVerificationRequirements;
   status: 200;
 };
 
 export type getVerificationMethodsResponse200ApplicationXml = {
-  data: ApiResponse;
+  data: ResponseDtoVerificationRequirements;
   status: 200;
 };
 
@@ -20180,18 +21932,33 @@ export type getVerificationMethodsResponseSuccess = (
 export type getVerificationMethodsResponse =
   getVerificationMethodsResponseSuccess;
 
-export const getGetVerificationMethodsUrl = () => {
-  return `/api/verify/methods`;
+export const getGetVerificationMethodsUrl = (
+  params: GetVerificationMethodsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/verify/methods?${stringifiedParams}`
+    : `/api/verify/methods`;
 };
 
 /**
  * @summary Get Verification Methods
  */
 export const getVerificationMethods = async (
+  params: GetVerificationMethodsParams,
   options?: Parameters<typeof customFetch>[1],
 ): Promise<getVerificationMethodsResponse> => {
   return customFetch<getVerificationMethodsResponse>(
-    getGetVerificationMethodsUrl(),
+    getGetVerificationMethodsUrl(params),
     {
       ...options,
       method: "GET",
@@ -22169,6 +23936,44 @@ export const relayResponsesCompact = async (
 ): Promise<relayResponsesCompactResponse> => {
   return customFetch<relayResponsesCompactResponse>(
     getRelayResponsesCompactUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export type postV1VideoGenerationsResponse200ApplicationJson = {
+  data: TaskResponseDoc;
+  status: 200;
+};
+
+export type postV1VideoGenerationsResponse200ApplicationXml = {
+  data: TaskResponseDoc;
+  status: 200;
+};
+
+export type postV1VideoGenerationsResponseSuccess = (
+  | postV1VideoGenerationsResponse200ApplicationJson
+  | postV1VideoGenerationsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type postV1VideoGenerationsResponse =
+  postV1VideoGenerationsResponseSuccess;
+
+export const getPostV1VideoGenerationsUrl = () => {
+  return `/v1/video/generations`;
+};
+
+/**
+ * @summary Post V1 Video Generations
+ */
+export const postV1VideoGenerations = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<postV1VideoGenerationsResponse> => {
+  return customFetch<postV1VideoGenerationsResponse>(
+    getPostV1VideoGenerationsUrl(),
     {
       ...options,
       method: "POST",
