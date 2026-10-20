@@ -1,5 +1,11 @@
 import { db } from "@/lib/db";
-import { inviteJoin, inviteSeed, member, rewardClaim } from "@/lib/db-schema";
+import {
+  inviteJoin,
+  inviteSeed,
+  member,
+  memberGuild,
+  rewardClaim,
+} from "@/lib/db-schema";
 import { logger } from "@/lib/logger";
 import { MemberDataService } from "@/core/services/members/member-data.service";
 import { GrantService } from "@/core/services/grant/grant.service";
@@ -66,6 +72,15 @@ export const InviteService = {
 
   async recordJoin(member: GuildMember): Promise<void> {
     const guild = member.guild;
+    // Read before anything upserts this join: the row outlives a leave, so it
+    // marks a rejoin even when the first join was never credited to anyone.
+    const seenBefore = await db.query.memberGuild.findFirst({
+      where: and(
+        eq(memberGuild.memberId, member.id),
+        eq(memberGuild.guildId, guild.id),
+      ),
+      columns: { id: true },
+    });
     const cached = cache.get(guild.id);
     const fresh = await guild.invites.fetch().catch((e) => {
       logger.error("Invite fetch on join failed", {
@@ -118,7 +133,12 @@ export const InviteService = {
 
     const hit = candidates[0]!;
     // Bot inviters = server-listing widgets (DISBOARD, Top.gg), not people.
-    if (!hit.inviterId || hit.inviterIsBot || hit.inviterId === member.id) {
+    if (
+      !hit.inviterId ||
+      hit.inviterIsBot ||
+      hit.inviterId === member.id ||
+      seenBefore
+    ) {
       return;
     }
 
