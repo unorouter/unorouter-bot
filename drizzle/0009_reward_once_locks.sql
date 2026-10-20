@@ -1,0 +1,2 @@
+ALTER TYPE "public"."claim_status" ADD VALUE 'redeeming';--> statement-breakpoint
+CREATE UNIQUE INDEX "uq_reward_grants_connect_target" ON "reward_grants" USING btree ("target_member_id") WHERE "reward_grants"."source_type" = 'connect';

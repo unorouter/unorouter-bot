@@ -55,6 +55,7 @@ export const claimStatusEnum = pgEnum("claim_status", [
   "pending",
   "paid",
   "void",
+  "redeeming",
 ]);
 // Why upstream declined to pay. "ip_duplicate" = the account shares a register
 // IP with an older one; "not_linked" = no platform account bound to the Discord id.
@@ -679,8 +680,9 @@ export const inviteSeed = pgTable(
 // --- Reward domain ---
 
 // Append-only audit: one row per successful new-api credit. granted_by is NULL
-// for automated ("system") grants, else the acting member. The dedupe index
-// serves both connect (target+source) and vote (target+source+source_id+time).
+// for automated ("system") grants, else the acting member. A connect row is
+// inserted as a reservation BEFORE the upstream credit, so the partial unique
+// index is the once-lock for the connect bonus.
 export const rewardGrant = pgTable(
   "reward_grants",
   {
@@ -714,6 +716,9 @@ export const rewardGrant = pgTable(
       table.sourceId,
       table.createdAt,
     ),
+    uniqueIndex("uq_reward_grants_connect_target")
+      .on(table.targetMemberId)
+      .where(sql`${table.sourceType} = 'connect'`),
   ],
 );
 

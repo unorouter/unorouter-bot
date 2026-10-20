@@ -27,7 +27,7 @@ import {
   type TransferResult
 } from "@/types";
 import { type Guild, type GuildMember } from "discord.js";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 // The Authorization header is injected by the orval mutator in
 // src/lib/new-api/custom-fetch.ts; these two only gate isConfigured().
@@ -85,6 +85,7 @@ export class GrantService {
     grantedByDiscordId: string;
     announceInviteeId?: string | null;
     checkIpUnique?: boolean;
+    reservedGrantId?: number;
   }): Promise<GrantResult> {
     if (!this.isConfigured()) {
       logger.warn("Grant skipped: NEW_API_URL / NEW_API_BOT_TOKEN missing");
@@ -146,20 +147,24 @@ export class GrantService {
       .values({ memberId: params.targetDiscordId, username: params.targetDiscordId })
       .onConflictDoNothing();
 
-    await db
-      .insert(rewardGrant)
-      .values({
-        targetMemberId: params.targetDiscordId,
-        newApiUserId: userId ?? null,
-        quota: params.quota,
-        reason: params.reason,
-        sourceType: params.sourceType,
-        sourceId: params.sourceId ?? null,
-        grantedByMemberId: systemToNull(params.grantedByDiscordId)
-      })
-      .catch((e) =>
-        logger.error("reward grant insert failed", { error: String(e) })
-      );
+    const recordGrant =
+      params.reservedGrantId == null
+        ? db.insert(rewardGrant).values({
+            targetMemberId: params.targetDiscordId,
+            newApiUserId: userId ?? null,
+            quota: params.quota,
+            reason: params.reason,
+            sourceType: params.sourceType,
+            sourceId: params.sourceId ?? null,
+            grantedByMemberId: systemToNull(params.grantedByDiscordId)
+          })
+        : db
+            .update(rewardGrant)
+            .set({ newApiUserId: userId ?? null })
+            .where(eq(rewardGrant.id, params.reservedGrantId));
+    await recordGrant.catch((e) =>
+      logger.error("reward grant insert failed", { error: String(e) })
+    );
 
     await this.announce(
       params.targetDiscordId,
@@ -377,21 +382,31 @@ export class GrantService {
    * (recorded as sourceType="connect") and adds the connected role. Repeat clicks
    * only ensure the role - no second bonus.
    */
-  static async connectBonus(member: GuildMember): Promise<ConnectResult> {
+  static async connectBonus(guildMember: GuildMember): Promise<ConnectResult> {
     if (!this.isConfigured()) return { status: ConnectStatus.NotLinked };
 
-    const prior = await db.query.rewardGrant
-      .findFirst({
-        where: and(
-          eq(rewardGrant.targetMemberId, member.id),
-          eq(rewardGrant.sourceType, "connect")
-        )
-      })
-      .catch(() => null);
+    const quota = CONNECT_GRANT_QUOTA;
+    const grantedQuota = quota > 0 ? quota : 1; // endpoint requires > 0; min 1 just verifies the link
+    const reason = "discord connect bonus";
 
-    if (prior) {
+    await db
+      .insert(member)
+      .values({ memberId: guildMember.id, username: guildMember.user.username })
+      .onConflictDoNothing();
+    const [reserved] = await db
+      .insert(rewardGrant)
+      .values({
+        targetMemberId: guildMember.id,
+        quota: grantedQuota,
+        reason,
+        sourceType: "connect"
+      })
+      .onConflictDoNothing()
+      .returning({ id: rewardGrant.id });
+
+    if (!reserved) {
       // Already claimed once: they were linked before. Just ensure the role.
-      await this.ensureConnectedRole(member);
+      await this.ensureConnectedRole(guildMember);
       return {
         status: ConnectStatus.Connected,
         bonusGranted: false,
@@ -399,20 +414,23 @@ export class GrantService {
       };
     }
 
-    const quota = CONNECT_GRANT_QUOTA;
     const result = await this.grantQuota({
-      targetDiscordId: member.id,
-      quota: quota > 0 ? quota : 1, // endpoint requires > 0; min 1 just verifies the link
-      reason: "discord connect bonus",
+      targetDiscordId: guildMember.id,
+      quota: grantedQuota,
+      reason,
       sourceType: "connect",
       sourceId: null,
       grantedByDiscordId: "system",
-      checkIpUnique: true
+      checkIpUnique: true,
+      reservedGrantId: reserved.id
     }).catch(() => ({ linked: false, quota }) as GrantResult);
 
+    if (!result.linked || result.ipDuplicate) {
+      await db.delete(rewardGrant).where(eq(rewardGrant.id, reserved.id));
+    }
     if (!result.linked) return { status: ConnectStatus.NotLinked };
 
-    await this.ensureConnectedRole(member);
+    await this.ensureConnectedRole(guildMember);
     if (result.ipDuplicate) {
       return {
         status: ConnectStatus.Connected,

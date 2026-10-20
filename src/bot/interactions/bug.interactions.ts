@@ -44,7 +44,10 @@ export class BugInteractions {
       return;
     }
     const existingClaim = await BugReportService.getBugClaim(row.id);
-    if (existingClaim?.status === "paid") {
+    if (
+      existingClaim?.status === "paid" ||
+      existingClaim?.status === "redeeming"
+    ) {
       await interaction.reply({
         content: "This bug report has already been resolved.",
         flags: [MessageFlags.Ephemeral],
@@ -188,7 +191,10 @@ export class BugInteractions {
       return;
     }
     const existingClaim = await BugReportService.getBugClaim(bugId);
-    if (existingClaim?.status === "paid") {
+    if (
+      existingClaim?.status === "paid" ||
+      existingClaim?.status === "redeeming"
+    ) {
       await interaction.editReply("Bug report already resolved.");
       return;
     }
@@ -264,25 +270,41 @@ export class BugInteractions {
       await interaction.editReply("Bug report not found.");
       return;
     }
-    const claim = await BugReportService.getBugClaim(bugId);
-    if (claim?.status === "paid") {
+    const existing = await BugReportService.getBugClaim(bugId);
+    if (existing?.status === "paid" || existing?.status === "redeeming") {
       await interaction.editReply("Already redeemed.");
       return;
     }
     if (
-      claim?.status !== "pending" ||
-      claim.pendingQuota == null ||
-      !claim.pendingReason ||
-      !claim.grantedByMemberId ||
-      !claim.targetMemberId
+      existing?.status !== "pending" ||
+      existing.pendingQuota == null ||
+      !existing.pendingReason ||
+      !existing.grantedByMemberId
     ) {
       await interaction.editReply("No pending reward on this report.");
       return;
     }
-    if (interaction.user.id !== claim.targetMemberId) {
+    if (interaction.user.id !== existing.targetMemberId) {
       await interaction.editReply(
         "Only the picked recipient can redeem this reward.",
       );
+      return;
+    }
+    const claim = await BugReportService.claimPendingReward(
+      bugId,
+      interaction.user.id,
+    );
+    if (!claim) {
+      await interaction.editReply("Already redeemed.");
+      return;
+    }
+    if (
+      claim.pendingQuota == null ||
+      !claim.pendingReason ||
+      !claim.grantedByMemberId
+    ) {
+      await BugReportService.releaseClaim(bugId, claim.targetMemberId);
+      await interaction.editReply("No pending reward on this report.");
       return;
     }
 
@@ -296,12 +318,14 @@ export class BugInteractions {
         grantedByDiscordId: claim.grantedByMemberId,
       });
       if (!result.linked) {
+        await BugReportService.releaseClaim(bugId, claim.targetMemberId);
         await interaction.editReply(
           `Still not linked. ${GrantService.linkPrompt()}`,
         );
         return;
       }
       if (result.ipDuplicate) {
+        await BugReportService.releaseClaim(bugId, claim.targetMemberId);
         await interaction.editReply(
           "Your account shares a register IP with another account, so the reward was refused. Open a ticket and staff can sort it out.",
         );
@@ -319,6 +343,7 @@ export class BugInteractions {
       await thread?.setArchived(true).catch(() => {});
     } catch (err) {
       logger.error("Bug redeem failed", { error: String(err) });
+      await BugReportService.releaseClaim(bugId, claim.targetMemberId);
       await interaction.editReply("Redeem failed. Try again in a moment.");
     }
   }

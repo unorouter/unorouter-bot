@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { bugReport, rewardClaim } from "@/lib/db-schema";
 import { logger } from "@/lib/logger";
 import { ButtonId, ButtonIdBuilder } from "@/types/custom-ids";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -179,7 +179,39 @@ export class BugReportService {
           grantedByMemberId,
           updatedAt: new Date().toISOString(),
         },
+        setWhere: ne(rewardClaim.status, "redeeming"),
       });
+  }
+
+  // Atomic pending -> redeeming flip: only the caller that gets a row back may pay.
+  static async claimPendingReward(bugId: number, targetId: string) {
+    const [claim] = await db
+      .update(rewardClaim)
+      .set({ status: "redeeming", updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(rewardClaim.sourceType, "bug"),
+          eq(rewardClaim.refId, String(bugId)),
+          eq(rewardClaim.targetMemberId, targetId),
+          eq(rewardClaim.status, "pending"),
+        ),
+      )
+      .returning();
+    return claim ?? null;
+  }
+
+  static async releaseClaim(bugId: number, targetId: string): Promise<void> {
+    await db
+      .update(rewardClaim)
+      .set({ status: "pending", updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(rewardClaim.sourceType, "bug"),
+          eq(rewardClaim.refId, String(bugId)),
+          eq(rewardClaim.targetMemberId, targetId),
+          eq(rewardClaim.status, "redeeming"),
+        ),
+      );
   }
 
   static async markApproved(

@@ -10,7 +10,7 @@ import { MemberDataService } from "@/core/services/members/member-data.service";
 import { ticketPromptEmbed } from "@/core/embeds/ticket-prompt.embed";
 import { findCategory, findTextChannel } from "@/shared/utils/channel.utils";
 import { ButtonId, ButtonIdBuilder } from "@/types/custom-ids";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import {
   ActionRowBuilder,
   AttachmentBuilder,
@@ -296,7 +296,39 @@ export class TicketService {
           grantedByMemberId,
           updatedAt: new Date().toISOString(),
         },
+        setWhere: ne(rewardClaim.status, "redeeming"),
       });
+  }
+
+  // Atomic pending -> redeeming flip: only the caller that gets a row back may pay.
+  static async claimPendingReward(ticketId: number, targetId: string) {
+    const [claim] = await db
+      .update(rewardClaim)
+      .set({ status: "redeeming", updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(rewardClaim.sourceType, "ticket"),
+          eq(rewardClaim.refId, String(ticketId)),
+          eq(rewardClaim.targetMemberId, targetId),
+          eq(rewardClaim.status, "pending"),
+        ),
+      )
+      .returning();
+    return claim ?? null;
+  }
+
+  static async releaseClaim(ticketId: number, targetId: string): Promise<void> {
+    await db
+      .update(rewardClaim)
+      .set({ status: "pending", updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(rewardClaim.sourceType, "ticket"),
+          eq(rewardClaim.refId, String(ticketId)),
+          eq(rewardClaim.targetMemberId, targetId),
+          eq(rewardClaim.status, "redeeming"),
+        ),
+      );
   }
 
   static async markRedeemed(

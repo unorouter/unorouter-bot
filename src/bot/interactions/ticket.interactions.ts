@@ -183,7 +183,7 @@ export class TicketInteractions {
       return;
     }
     const claim = await TicketService.getTicketClaim(row.id);
-    if (claim?.status === "paid") {
+    if (claim?.status === "paid" || claim?.status === "redeeming") {
       await interaction.reply({
         content: "This ticket has already been rewarded.",
         flags: [MessageFlags.Ephemeral],
@@ -211,7 +211,10 @@ export class TicketInteractions {
       return;
     }
     const existingClaim = await TicketService.getTicketClaim(ticketId);
-    if (existingClaim?.status === "paid") {
+    if (
+      existingClaim?.status === "paid" ||
+      existingClaim?.status === "redeeming"
+    ) {
       await interaction.editReply("This ticket has already been rewarded.");
       return;
     }
@@ -277,21 +280,33 @@ export class TicketInteractions {
       await interaction.editReply("Ticket not found.");
       return;
     }
-    const claim = await TicketService.getTicketClaim(ticketId);
-    if (claim?.status === "paid") {
+    const existing = await TicketService.getTicketClaim(ticketId);
+    if (existing?.status === "paid" || existing?.status === "redeeming") {
       await interaction.editReply("Already redeemed.");
       return;
     }
-    if (interaction.user.id !== claim?.targetMemberId) {
+    if (interaction.user.id !== existing?.targetMemberId) {
       await interaction.editReply("Only the ticket opener can redeem this.");
       return;
     }
+    if (existing.status !== "pending") {
+      await interaction.editReply("No pending reward on this ticket.");
+      return;
+    }
+    const claim = await TicketService.claimPendingReward(
+      ticketId,
+      interaction.user.id,
+    );
+    if (!claim) {
+      await interaction.editReply("Already redeemed.");
+      return;
+    }
     if (
-      claim.status !== "pending" ||
       claim.pendingQuota == null ||
       !claim.pendingReason ||
       !claim.grantedByMemberId
     ) {
+      await TicketService.releaseClaim(ticketId, claim.targetMemberId);
       await interaction.editReply("No pending reward on this ticket.");
       return;
     }
@@ -306,12 +321,14 @@ export class TicketInteractions {
         grantedByDiscordId: claim.grantedByMemberId,
       });
       if (!result.linked) {
+        await TicketService.releaseClaim(ticketId, claim.targetMemberId);
         await interaction.editReply(
           `Still not linked. ${GrantService.linkPrompt()}`,
         );
         return;
       }
       if (result.ipDuplicate) {
+        await TicketService.releaseClaim(ticketId, claim.targetMemberId);
         await interaction.editReply(
           "Your account shares a register IP with another account, so the reward was refused. Open a ticket and staff can sort it out.",
         );
@@ -321,6 +338,7 @@ export class TicketInteractions {
       await interaction.editReply("Reward delivered to your balance.");
     } catch (err) {
       logger.error("Ticket redeem failed", { error: String(err) });
+      await TicketService.releaseClaim(ticketId, claim.targetMemberId);
       await interaction.editReply("Redeem failed. Try again in a moment.");
     }
   }
