@@ -62,9 +62,9 @@ spec:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
     podAntiAffinityType: required
-  # requests only (7 day median 930Mi, 525m), no limits
+  # requests only, no limits; working set peaked at 379Mi over 30 days (2026-10-24)
   resources:
-    requests: { cpu: 500m, memory: 1Gi }
+    requests: { cpu: 500m, memory: 512Mi }
   storage:
     size: 10Gi
     storageClass: local-path
