@@ -261,6 +261,8 @@ fetch(`/api/v9/applications/${botAppId}/guilds/${guildId}/commands`, {
 
 ### Research ANY server you have joined (guild message search)
 
+**Superseded (2026-10-26): do not call `/api/v9` with the user token at all, read or write.** Posting replies through `POST /channels/{id}/messages` logged the session out after the second message, and search through the API drew a 429 on nearly every request. Use the Discord web UI instead: the search bar, clicking into results, typing in the message box. The notes below stay only as a record of how it worked.
+
 Reading another community's own discussions (e.g. a proxy service's Discord to
 learn their policy before pitching a partnership) uses the SAME user token. This
 is your own account's token on your own logged-in session; it only reads what you
