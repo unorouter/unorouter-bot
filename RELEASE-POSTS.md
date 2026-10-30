@@ -79,63 +79,13 @@ logged-in session (user "Don") authors the post. Confirm with
   `[text](url)`, `<url>` (no embed), channel mentions `<#channelId>`.
 - ASCII punctuation only (house rule). No em/en dashes, no Unicode arrows.
 
-### A2. Post + publish in one MCP call
+### A2. Post + publish in the web client
 
-Use `mcp__chrome-devtools__evaluate_script` on the open Discord tab. The script
-grabs the user token via the webpack trick (CLAUDE.md "Get the user token"),
-POSTs the message, then crossposts it.
-
-```js
-async () => {
-  let token;
-  webpackChunkdiscord_app.push([[Math.random()], {}, (req) => {
-    for (const id in req.c) {
-      const mod = req.c[id]?.exports; if (!mod) continue;
-      for (const c of [mod, mod.default, mod.Z, mod.ZP]) {
-        try { if (c?.getToken) { const v = c.getToken(); if (typeof v === "string" && v.length > 20) token = v; } } catch {}
-      }
-    }
-  }]);
-  if (!token) return { ok: false, error: "no token" };
-
-  const channelId = "1509906155043029202"; // changelog (or announcements id)
-  const content = [
-    "## Mon D, YYYY",
-    "**Headline change**",
-    "Terse detail line.",
-  ].join("\n");
-
-  const res = await fetch(`/api/v9/channels/${channelId}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: token },
-    body: JSON.stringify({ content }),
-  });
-  const j = await res.json().catch(() => null);
-  if (!res.ok) return { ok: false, status: res.status, err: j };
-
-  // publish (announcement channels only)
-  const cp = await fetch(`/api/v9/channels/${channelId}/messages/${j.id}/crosspost`, {
-    method: "POST", headers: { "Content-Type": "application/json", Authorization: token }, body: "{}",
-  });
-  return { ok: true, id: j.id, published: cp.ok };
-}
-```
-
-Returns the message id. Keep it: edits need it.
+Never call `/api/v9` with the user token (see CLAUDE.md). Type the post into the channel's message box as Don through `mcp__chrome-devtools__*`, send it, then choose Publish in the message's menu (announcement channels only).
 
 ### A3. Edit later (trim bloat, fix typos)
 
-PATCH the same message id. The user token can PATCH only messages it authored.
-
-```js
-await fetch(`/api/v9/channels/${channelId}/messages/${messageId}`, {
-  method: "PATCH",
-  headers: { "Content-Type": "application/json", Authorization: token },
-  body: JSON.stringify({ content: newContent }),
-});
-```
-
-Edits apply to the already-published copy too; no re-publish needed.
+Edit the message in the web client. Only the author can edit it. Edits apply to the already-published copy too; no re-publish needed.
 
 ### A4. Verify
 

@@ -130,7 +130,7 @@ to `LEVEL_ROLES`). Set a value to `0` to disable that reward entirely; the panel
 - **Deploy the bot BEFORE patching OpenBao** when the formatter changed, or the panels advertise
   a rounded figure while the bot pays the real one.
 - **Non-bot surfaces do not auto-update.** The `❤️│boosters` post is authored by Don and states
-  the boost amount in prose; a user token must PATCH it (`/api/v9/channels/<ch>/messages/<id>`).
+  the boost amount in prose; edit it as Don in the Discord web client.
   Grep the pinned posts in `📢 INFORMATION` for stale figures after every cut.
 - **The bot DOES run migrations on boot** (a failure only logs "Database migration failed" and
   the bot keeps running, so it is easy to miss). Prefer letting it apply them: generate with
@@ -151,164 +151,18 @@ to `LEVEL_ROLES`). Set a value to `0` to disable that reward entirely; the panel
 Most server-admin tasks (rename channel, delete channel, edit pinned panel posts, post announcements) are NOT bot code. They go through the Discord web client via `mcp__chrome-devtools__*` tools. Brave runs with remote-debugging on port 9223; the chrome-devtools MCP attaches there.
 
 TWO ACCOUNTS, and the difference matters: **Brave (9223) is `Don`** (Admin role, authored the
-pinned posts, so only Don's token can PATCH them). **Chrome (9224) is `mr.countdown`, the SERVER
+pinned posts, so only Don can edit them). **Chrome (9224) is `mr.countdown`, the SERVER
 OWNER** - it holds only the `Verified` role, so owner status is what grants it authority; use it
 for anything role/permission related that Don cannot do. The MCP is attached to Brave only;
 drive Chrome over raw CDP against its `webSocketDebuggerUrl`.
 
 > **Shipping a release post?** See [RELEASE-POSTS.md](RELEASE-POSTS.md) for the end-to-end runbook: when to use changelog vs announcements vs blog, the post+publish+edit MCP scripts, and the full blog flow (registry + content + 18-locale translation fan-out).
 
-### Get the user token (once per session)
+### Use the web UI, never `/api/v9` with the user token
 
-Discord's webpack chunk push trick. Returns a 72-char user token (NOT a bot token):
-
-```js
-let token;
-webpackChunkdiscord_app.push([
-  [Math.random()],
-  {},
-  (req) => {
-    for (const id in req.c) {
-      const mod = req.c[id]?.exports;
-      if (!mod) continue;
-      for (const c of [mod, mod.default, mod.Z, mod.ZP]) {
-        try {
-          if (c?.getToken) {
-            const v = c.getToken();
-            if (typeof v === "string" && v.length > 20) token = v;
-          }
-        } catch {}
-      }
-    }
-  },
-]);
-// `token` is now usable as Authorization header on /api/v9/*
-```
-
-### Common operations (PATCH/POST/DELETE /api/v9/\*)
-
-All require the page to be `discord.com/channels/<guildId>/<channelId>` (or any logged-in Discord page) before the script runs.
-
-**Find channel by name:**
-
-```js
-const r = await fetch(`/api/v9/guilds/${guildId}/channels`, {
-  headers: { Authorization: token },
-});
-const arr = await r.json();
-arr
-  .filter((c) => /verify/i.test(c.name))
-  .map((c) => ({ id: c.id, name: c.name, type: c.type }));
-```
-
-**Rename channel:**
-
-```js
-fetch(`/api/v9/channels/${channelId}`, {
-  method: "PATCH",
-  headers: { "Content-Type": "application/json", Authorization: token },
-  body: JSON.stringify({ name: "✅│verify" }),
-});
-```
-
-**Delete channel** (irreversible — confirm with user first):
-
-```js
-fetch(`/api/v9/channels/${channelId}`, {
-  method: "DELETE",
-  headers: { Authorization: token },
-});
-```
-
-**Post a message:**
-
-```js
-fetch(`/api/v9/channels/${channelId}/messages`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json", Authorization: token },
-  body: JSON.stringify({ content: "..." }),
-});
-```
-
-**Edit a message YOU AUTHORED** (user token can only PATCH your own messages, NOT the bot's):
-
-```js
-fetch(`/api/v9/channels/${channelId}/messages/${messageId}`, {
-  method: "PATCH",
-  headers: { "Content-Type": "application/json", Authorization: token },
-  body: JSON.stringify({ content: "..." }),
-});
-```
+Posting through `POST /channels/{id}/messages` logged the session out after the second message on 2026-10-26, and search through the API drew a 429 on nearly every request. Rename and delete channels, post, edit, pin and search in the Discord web client. Deleting a channel is irreversible: confirm with the user first. Before opening a partnership conversation, search that service's own server for prior asks.
 
 To replace a bot-authored panel embed, re-run the bot's `/verify-panel` (or equivalent) command. `purgeOwnPanels` in [src/core/utils/command.utils.ts](src/core/utils/command.utils.ts) deletes the bot's previous post in the channel before reposting, so re-running the command is idempotent.
-
-**Pin a message:**
-
-```js
-fetch(`/api/v9/channels/${channelId}/pins/${messageId}`, {
-  method: "PUT",
-  headers: { Authorization: token },
-});
-```
-
-**List server's registered slash commands** (resolve `verify-panel` etc. to command id):
-
-```js
-fetch(`/api/v9/applications/${botAppId}/guilds/${guildId}/commands`, {
-  headers: { Authorization: token },
-});
-```
-
-### Research ANY server you have joined (guild message search)
-
-**Superseded (2026-10-26): do not call `/api/v9` with the user token at all, read or write.** Posting replies through `POST /channels/{id}/messages` logged the session out after the second message, and search through the API drew a 429 on nearly every request. Use the Discord web UI instead: the search bar, clicking into results, typing in the message box. The notes below stay only as a record of how it worked.
-
-Reading another community's own discussions (e.g. a proxy service's Discord to
-learn their policy before pitching a partnership) uses the SAME user token. This
-is your own account's token on your own logged-in session; it only reads what you
-can already read in the UI, just without React's pagination limits.
-
-DON'T trust `location.pathname.split('/')[2]` for the guild id: on the DMs view it
-is `@me`, and the search then silently returns results from the wrong scope (this
-burned a real investigation - results for another server were actually the UnoRouter guild
-until the id was pinned). Resolve the target guild explicitly first:
-`(await (await fetch('https://discord.com/api/v9/users/@me/guilds',{headers:{authorization:token}})).json()).filter(x=>/NAME/i.test(x.name))`,
-then hardcode that guild id into the search loop.
-
-Two token gotchas that produce a silent `401`:
-
-- The webpack-chunk trick above sometimes returns nothing on non-owned servers.
-  The reliable fallback is the iframe read (localStorage is same-origin but the
-  main window's copy is often cleared by Discord): `const f =
-  document.createElement("iframe"); document.body.append(f); const token =
-  JSON.parse(f.contentWindow.localStorage.getItem("token")); f.remove();`
-- Send the token as the `authorization` header value verbatim (the JSON-parsed
-  string, no `Bearer` prefix, no extra quotes).
-
-```js
-const guildId = location.pathname.split("/")[2];
-for (const q of ["whitelist", "cors", "403", "custom frontend"]) {
-  let r = await fetch(
-    `/api/v9/guilds/${guildId}/messages/search?content=${encodeURIComponent(q)}&limit=10`,
-    { headers: { authorization: token } },
-  );
-  if (r.status === 429) {
-    const j = await r.json();
-    await new Promise((s) => setTimeout(s, (j.retry_after ?? 1) * 1000 + 500));
-    r = await fetch(/* retry same url */);
-  }
-  const j = await r.json();
-  // j.total_results = count; j.messages = array of [contextMsgs...]; the
-  // matched message has `hit: true`. Truncate content, throttle ~700ms between
-  // terms to stay under the search rate limit.
-}
-```
-
-This found one service's allowlist policy: their staff whitelist a
-frontend if you give them the Cloudflare Ray ID from your 403 (grab it with
-`curl -D - ... | grep -i cf-ray`), and other custom frontends hit the identical
-403-HTML-page symptom. Worth checking a service's own server for prior asks
-before opening a partnership conversation.
 
 ### Trigger a bot slash command without typing
 
@@ -329,7 +183,7 @@ Discord guild-command sync can lag a few seconds after deploy. Instead of typing
 
 ### Where common channel IDs live
 
-Don't hardcode. Each session, refetch via the `guilds/${guildId}/channels` endpoint above. The bot doesn't need IDs at all (NAME substring resolution).
+Don't hardcode. Find a channel by name in the Discord UI. The bot doesn't need IDs at all (NAME substring resolution).
 
 ## Cluster access (logs, env, DB): Talos, not don
 
@@ -368,7 +222,7 @@ For an app-user connection instead of superuser, the `-rw` service (`bot-pg-rw` 
 - No tests unless explicitly requested.
 - No bloated comments. Comment only non-obvious WHY, one terse line. No restating code.
 - No barrel re-export files when splitting modules. Rewrite each importer.
-- Deploy only through `infra/scripts/build-local.sh unorouter-bot --deploy`.
+- Deploy only by pushing to `main`; `build-local.sh` is retired.
 - Don't give the bot new-api's root access token again. It now holds its own scoped `NEW_API_BOT_TOKEN`; rotating it means patching BOTH `secret/newapi-env` (`BOT_SERVICE_TOKEN`) and `secret/bot-env` (`NEW_API_BOT_TOKEN`) to the SAME value, or the bot silently falls through to admin auth and 401s.
 
 ## Server channels (UnoRouter, guild 1498300365001588746)
