@@ -160,7 +160,7 @@ drive Chrome over raw CDP against its `webSocketDebuggerUrl`.
 
 ### Use the web UI, never `/api/v9` with the user token
 
-Posting through `POST /channels/{id}/messages` logged the session out after the second message on 2026-10-26, and search through the API drew a 429 on nearly every request. Rename and delete channels, post, edit, pin and search in the Discord web client. Deleting a channel is irreversible: confirm with the user first. Before opening a partnership conversation, search that service's own server for prior asks.
+Posting through `POST /channels/{id}/messages` logged the session out after the second message on 2026-10-26, and search through the API drew a 429 on nearly every request. Rename and delete channels, post, edit, pin and search in the Discord web client. Deleting a channel is irreversible: confirm with the user first.
 
 To replace a bot-authored panel embed, re-run the bot's `/verify-panel` (or equivalent) command. `purgeOwnPanels` in [src/core/utils/command.utils.ts](src/core/utils/command.utils.ts) deletes the bot's previous post in the channel before reposting, so re-running the command is idempotent.
 
