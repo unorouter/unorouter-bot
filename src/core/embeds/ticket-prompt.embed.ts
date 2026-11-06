@@ -59,7 +59,9 @@ export function ticketPromptEmbed(category: TicketCategory): APIEmbed {
     description: bug
       ? "Post the details below in this channel. A ticket with no description just waits until someone asks, so the more you write now the faster this moves."
       : `Post the details below in this channel. A ticket with no description just waits until someone asks, so the more you write now the faster this moves.\n\nAccount and balance questions are usually quickest to answer with your site username to hand: ${WEBSITE_URL}`,
-    fields: bug ? [...BUG_FIELDS, BUG_CLOSE_FIELD] : [...SUPPORT_FIELDS, CLOSE_FIELD],
+    fields: bug
+      ? [...BUG_FIELDS, BUG_CLOSE_FIELD]
+      : [...SUPPORT_FIELDS, CLOSE_FIELD],
     footer: {
       text: "Staff have been pinged. Write your message now, they will read it when they arrive.",
     },
