@@ -313,7 +313,7 @@ export interface ClaudeServerToolUse {
   web_search_requests?: number;
 }
 
-export interface ClaudeUsage {
+export interface BillingUsage {
   billing_usage?: BillingUsage;
   cache_creation?: ClaudeCacheCreationUsage;
   cache_creation_input_tokens: number;
@@ -325,32 +325,17 @@ export interface ClaudeUsage {
   server_tool_use?: ClaudeServerToolUse;
 }
 
-export interface GeminiPromptTokensDetails {
-  modality: string;
-  tokenCount: number;
+export interface BucketPoint {
+  avg_latency_ms: number;
+  avg_tps: number;
+  avg_ttft_ms: number;
+  success_rate: number;
+  ts: number;
 }
 
-export interface GeminiUsageMetadata {
-  billing_usage?: BillingUsage;
-  cachedContentTokenCount: number;
-  candidatesTokenCount: number;
-  /** @nullable */
-  candidatesTokensDetails: GeminiPromptTokensDetails[] | null;
-  promptTokenCount: number;
-  /** @nullable */
-  promptTokensDetails: GeminiPromptTokensDetails[] | null;
-  thoughtsTokenCount: number;
-  toolUsePromptTokenCount: number;
-  /** @nullable */
-  toolUsePromptTokensDetails: GeminiPromptTokensDetails[] | null;
-  totalTokenCount: number;
-}
-
-export interface OutputTokenDetails {
-  audio_tokens: number;
-  image_tokens: number;
-  reasoning_tokens: number;
-  text_tokens: number;
+export interface CacheWriteTokenDetails {
+  ttl_12h_tokens: number;
+  ttl_30m_tokens: number;
 }
 
 export interface CachedTokenDetails {
@@ -360,52 +345,6 @@ export interface CachedTokenDetails {
   image_tokens?: number | null;
   /** @nullable */
   text_tokens?: number | null;
-}
-
-export interface InputTokenDetails {
-  audio_tokens: number;
-  cache_write_tokens?: number;
-  cached_creation_tokens?: number;
-  cached_tokens: number;
-  cached_tokens_details?: CachedTokenDetails;
-  image_tokens: number;
-  text_tokens: number;
-}
-
-export interface Usage {
-  billing_usage?: BillingUsage;
-  claude_cache_creation_1_h_tokens: number;
-  claude_cache_creation_5_m_tokens: number;
-  completion_tokens: number;
-  completion_tokens_details: OutputTokenDetails;
-  cost?: unknown;
-  input_tokens: number;
-  input_tokens_details: InputTokenDetails;
-  output_tokens: number;
-  output_tokens_details?: OutputTokenDetails;
-  prompt_cache_hit_tokens?: number;
-  prompt_tokens: number;
-  prompt_tokens_details: InputTokenDetails;
-  total_tokens: number;
-  usage_semantic?: string;
-  usage_source?: string;
-}
-
-export interface BillingUsage {
-  claude_usage?: ClaudeUsage;
-  estimated?: boolean;
-  gemini_usage_metadata?: GeminiUsageMetadata;
-  openai_usage?: Usage;
-  semantic?: string;
-  source?: string;
-}
-
-export interface BucketPoint {
-  avg_latency_ms: number;
-  avg_tps: number;
-  avg_ttft_ms: number;
-  success_rate: number;
-  ts: number;
 }
 
 export interface CardItemDTO {
@@ -602,6 +541,18 @@ export interface ClaudeMessageResponse {
   stop_sequence: string | null;
   type: string;
   usage: unknown;
+}
+
+export interface ClaudeUsage {
+  billing_usage?: BillingUsage;
+  cache_creation?: ClaudeCacheCreationUsage;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+  claude_cache_creation_1_h_tokens: number;
+  claude_cache_creation_5_m_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  server_tool_use?: ClaudeServerToolUse;
 }
 
 export interface ClusterNameAvailabilityResponse {
@@ -829,6 +780,8 @@ export interface CreateTokenRequest {
   model_limits: string;
   model_limits_enabled: boolean;
   name: string;
+  /** @nullable */
+  prompt_cache: string | null;
   remain_quota: number;
   unlimited_quota: boolean;
 }
@@ -1130,6 +1083,44 @@ export interface EmbeddingResponseItem {
   object: string;
 }
 
+export interface OutputTokenDetails {
+  audio_tokens: number;
+  image_tokens: number;
+  reasoning_tokens: number;
+  text_tokens: number;
+}
+
+export interface InputTokenDetails {
+  audio_tokens: number;
+  cache_creation_input_tokens?: number;
+  cache_write_tokens?: number;
+  cache_write_tokens_details?: CacheWriteTokenDetails;
+  cached_creation_tokens?: number;
+  cached_tokens: number;
+  cached_tokens_details?: CachedTokenDetails;
+  image_tokens: number;
+  text_tokens: number;
+}
+
+export interface Usage {
+  billing_usage?: BillingUsage;
+  claude_cache_creation_1_h_tokens: number;
+  claude_cache_creation_5_m_tokens: number;
+  completion_tokens: number;
+  completion_tokens_details: OutputTokenDetails;
+  cost?: unknown;
+  input_tokens: number;
+  input_tokens_details: InputTokenDetails;
+  output_tokens: number;
+  output_tokens_details?: OutputTokenDetails;
+  prompt_cache_hit_tokens?: number;
+  prompt_tokens: number;
+  prompt_tokens_details: InputTokenDetails;
+  total_tokens: number;
+  usage_semantic?: string;
+  usage_source?: string;
+}
+
 /**
  * EmbeddingResponse schema
  */
@@ -1193,6 +1184,25 @@ export interface FetchDiscoveryData {
   well_known_url: string;
 }
 
+export interface UpstreamDTO {
+  base_url: string;
+  endpoint: string;
+  id?: number;
+  name: string;
+}
+
+/**
+ * FetchUpstreamRatiosRequest schema
+ */
+export interface FetchUpstreamRatiosRequest {
+  /** @nullable */
+  channel_ids: number[] | null;
+  include_unchanged: boolean;
+  timeout: number;
+  /** @nullable */
+  upstreams: UpstreamDTO[] | null;
+}
+
 export type FetchUpstreamRatiosResultDifferencesAnyOf = {
   [key: string]: { [key: string]: DifferenceItem };
 };
@@ -1238,43 +1248,32 @@ export interface FlowQuotaData {
 }
 
 /**
- * FreeConsentGrantRequest schema
- */
-export interface FreeConsentGrantRequest {
-  /** @maxLength 16 */
-  locale: string;
-  /** @maxLength 255 */
-  model: string;
-  /** @maxLength 20000 */
-  text: string;
-}
-
-export interface FreeConsentItem {
-  covers: boolean;
-  created_at: number;
-  locale: string;
-  model: string;
-}
-
-export interface FreeConsentListData {
-  /** @nullable */
-  consents: FreeConsentItem[] | null;
-}
-
-/**
- * FreeConsentRevokeRequest schema
- */
-export interface FreeConsentRevokeRequest {
-  /** @maxLength 255 */
-  model: string;
-}
-
-/**
  * GeminiModelList schema
  */
 export interface GeminiModelList {
   models: unknown;
   nextPageToken: unknown;
+}
+
+export interface GeminiPromptTokensDetails {
+  modality: string;
+  tokenCount: number;
+}
+
+export interface GeminiUsageMetadata {
+  billing_usage?: BillingUsage;
+  cachedContentTokenCount: number;
+  candidatesTokenCount: number;
+  /** @nullable */
+  candidatesTokensDetails: GeminiPromptTokensDetails[] | null;
+  promptTokenCount: number;
+  /** @nullable */
+  promptTokensDetails: GeminiPromptTokensDetails[] | null;
+  thoughtsTokenCount: number;
+  toolUsePromptTokenCount: number;
+  /** @nullable */
+  toolUsePromptTokensDetails: GeminiPromptTokensDetails[] | null;
+  totalTokenCount: number;
 }
 
 export type GetAllChannelsDataTypeCountsAnyOf = { [key: string]: number };
@@ -1569,7 +1568,15 @@ export interface ManageRequest {
   value: number;
 }
 
+export interface RewardIpCheckData {
+  cleared: boolean;
+  earlier_accounts: number;
+  earlier_rewarded: number;
+  earlier_same_email: number;
+}
+
 export interface ManageUserData {
+  reward_ip?: RewardIpCheckData;
   role: number;
   status: number;
 }
@@ -1718,6 +1725,20 @@ export interface ModelMetadata {
   supportsVision?: boolean;
   supportsWebSearch?: boolean;
   tokenizer?: string;
+}
+
+export interface PricePoint {
+  completion_ratio: number;
+  day: string;
+  group: string;
+  ratio: number;
+  requests: number;
+}
+
+export interface ModelPriceHistory {
+  best?: PricePoint;
+  days: PricePoint[];
+  model_name: string;
 }
 
 export interface ModelRankingPoint {
@@ -2192,6 +2213,21 @@ export interface PriceBreakdown {
   total_cost: number;
 }
 
+export interface PriceDrop {
+  completion_ratio: number;
+  day: string;
+  drop_pct: number;
+  group: string;
+  model_name: string;
+  previous_ratio: number;
+  ratio: number;
+  vendor: string;
+}
+
+export interface PriceDropsResponse {
+  drops: PriceDrop[];
+}
+
 /**
  * PriceEstimationRequest schema
  */
@@ -2473,6 +2509,14 @@ export interface ProviderConsentGrantRequest {
   text: string;
 }
 
+export type ProviderConsentItemStatus =
+  (typeof ProviderConsentItemStatus)[keyof typeof ProviderConsentItemStatus];
+
+export const ProviderConsentItemStatus = {
+  given: "given",
+  missing: "missing",
+} as const;
+
 export interface ProviderConsentModelItem {
   active: boolean;
   active_channels: number;
@@ -2498,7 +2542,7 @@ export interface ProviderConsentItem {
   models: string[] | null;
   onward_unvetted: boolean;
   practice: string;
-  status: string;
+  status: ProviderConsentItemStatus;
   /** @nullable */
   tags: string[] | null;
   trains_or_retains: boolean;
@@ -2552,6 +2596,8 @@ export interface QueryResult {
 }
 
 export interface QuotaData {
+  cache_creation_tokens: number;
+  cache_read_tokens: number;
   channel_id: number;
   count: number;
   created_at: number;
@@ -3057,6 +3103,7 @@ export interface TokenResponse {
   model_limits: string;
   model_limits_enabled: boolean;
   name: string;
+  prompt_cache: string;
   remain_quota: number;
   status: number;
   unlimited_quota: boolean;
@@ -3348,15 +3395,6 @@ export interface ResponseDtoFetchUpstreamRatiosResult {
  */
 export interface ResponseDtoFixAbilityData {
   data: FixAbilityData;
-  message: string;
-  success: boolean;
-}
-
-/**
- * Response_dto.FreeConsentListData schema
- */
-export interface ResponseDtoFreeConsentListData {
-  data: FreeConsentListData;
   message: string;
   success: boolean;
 }
@@ -4041,6 +4079,8 @@ export interface StatusData {
   privacy_policy_url?: string;
   quota_display_type: string;
   quota_per_unit: number;
+  quota_remind_enabled: boolean;
+  quota_remind_threshold: number;
   register_enabled: boolean;
   self_use_mode_enabled: boolean;
   server_address: string;
@@ -4624,10 +4664,28 @@ export interface ResponseServiceChannelAffinityUsageCacheStats {
 }
 
 /**
+ * Response_service.ModelPriceHistory schema
+ */
+export interface ResponseServiceModelPriceHistory {
+  data: ModelPriceHistory;
+  message: string;
+  success: boolean;
+}
+
+/**
  * Response_service.ModelRankingResponse schema
  */
 export interface ResponseServiceModelRankingResponse {
   data: ModelRankingResponse;
+  message: string;
+  success: boolean;
+}
+
+/**
+ * Response_service.PriceDropsResponse schema
+ */
+export interface ResponseServicePriceDropsResponse {
+  data: PriceDropsResponse;
   message: string;
   success: boolean;
 }
@@ -4917,6 +4975,8 @@ export interface UpdateTokenRequest {
   model_limits: string;
   model_limits_enabled: boolean;
   name: string;
+  /** @nullable */
+  prompt_cache: string | null;
   remain_quota: number;
   status: number;
   unlimited_quota: boolean;
@@ -4928,6 +4988,8 @@ export interface UpdateTokenRequest {
 export interface UpdateUserSettingRequest {
   accept_unset_model_ratio_model: boolean;
   bark_url?: string;
+  /** @nullable */
+  channel_notify_enabled?: boolean | null;
   gotify_priority?: number;
   gotify_token?: string;
   gotify_url?: string;
@@ -4940,24 +5002,6 @@ export interface UpdateUserSettingRequest {
   upstream_model_update_notify_enabled?: boolean | null;
   webhook_secret?: string;
   webhook_url?: string;
-}
-
-export interface UpstreamDTO {
-  base_url: string;
-  endpoint: string;
-  id?: number;
-  name: string;
-}
-
-/**
- * UpstreamRequest schema
- */
-export interface UpstreamRequest {
-  /** @nullable */
-  channel_ids: number[] | null;
-  timeout: number;
-  /** @nullable */
-  upstreams: UpstreamDTO[] | null;
 }
 
 /**
@@ -5393,6 +5437,13 @@ export type GetUserLogsParams = {
   subscription_plan?: string;
 };
 
+export type GetSelfPerfMetricsParams = {
+  /**
+   * Lookback window in hours (default 24, max 720)
+   */
+  hours?: number;
+};
+
 export type GetLogsSelfStatParams = {
   type?: number;
   start_timestamp?: number;
@@ -5750,6 +5801,13 @@ export type GetModelRankingParams = {
    * Ranking period: today|week|month|year (default week)
    */
   period?: string;
+};
+
+export type GetModelPriceHistoryParams = {
+  /**
+   * Model name (required)
+   */
+  model?: string;
 };
 
 export type GetAllRedemptionsParams = {
@@ -10318,6 +10376,56 @@ export const exportUserLogs = async (
   });
 };
 
+export type getSelfPerfMetricsResponse200ApplicationJson = {
+  data: ResponsePerfMetricsSummaryAllResult;
+  status: 200;
+};
+
+export type getSelfPerfMetricsResponse200ApplicationXml = {
+  data: ResponsePerfMetricsSummaryAllResult;
+  status: 200;
+};
+
+export type getSelfPerfMetricsResponseSuccess = (
+  | getSelfPerfMetricsResponse200ApplicationJson
+  | getSelfPerfMetricsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getSelfPerfMetricsResponse = getSelfPerfMetricsResponseSuccess;
+
+export const getGetSelfPerfMetricsUrl = (params?: GetSelfPerfMetricsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/log/self/perf?${stringifiedParams}`
+    : `/api/log/self/perf`;
+};
+
+/**
+ * @summary Get Self Perf Metrics
+ */
+export const getSelfPerfMetrics = async (
+  params?: GetSelfPerfMetricsParams,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getSelfPerfMetricsResponse> => {
+  return customFetch<getSelfPerfMetricsResponse>(
+    getGetSelfPerfMetricsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
 export type searchUserLogsResponse200ApplicationJson = {
   data: MessageResponse;
   status: 200;
@@ -13523,6 +13631,92 @@ export const getModelRanking = async (
   });
 };
 
+export type getPriceDropsResponse200ApplicationJson = {
+  data: ResponseServicePriceDropsResponse;
+  status: 200;
+};
+
+export type getPriceDropsResponse200ApplicationXml = {
+  data: ResponseServicePriceDropsResponse;
+  status: 200;
+};
+
+export type getPriceDropsResponseSuccess = (
+  | getPriceDropsResponse200ApplicationJson
+  | getPriceDropsResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getPriceDropsResponse = getPriceDropsResponseSuccess;
+
+export const getGetPriceDropsUrl = () => {
+  return `/api/rankings/price-drops`;
+};
+
+/**
+ * @summary Get Price Drops
+ */
+export const getPriceDrops = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getPriceDropsResponse> => {
+  return customFetch<getPriceDropsResponse>(getGetPriceDropsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export type getModelPriceHistoryResponse200ApplicationJson = {
+  data: ResponseServiceModelPriceHistory;
+  status: 200;
+};
+
+export type getModelPriceHistoryResponse200ApplicationXml = {
+  data: ResponseServiceModelPriceHistory;
+  status: 200;
+};
+
+export type getModelPriceHistoryResponseSuccess = (
+  | getModelPriceHistoryResponse200ApplicationJson
+  | getModelPriceHistoryResponse200ApplicationXml
+) & {
+  headers: Headers;
+};
+export type getModelPriceHistoryResponse = getModelPriceHistoryResponseSuccess;
+
+export const getGetModelPriceHistoryUrl = (
+  params?: GetModelPriceHistoryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/rankings/price-history?${stringifiedParams}`
+    : `/api/rankings/price-history`;
+};
+
+/**
+ * @summary Get Model Price History
+ */
+export const getModelPriceHistory = async (
+  params?: GetModelPriceHistoryParams,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<getModelPriceHistoryResponse> => {
+  return customFetch<getModelPriceHistoryResponse>(
+    getGetModelPriceHistoryUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
 export type getRatioConfigResponse200ApplicationJson = {
   data: AnonymousSchema0;
   status: 200;
@@ -13617,7 +13811,7 @@ export const getFetchUpstreamRatiosUrl = () => {
  * @summary Fetch Upstream Ratios
  */
 export const fetchUpstreamRatios = async (
-  upstreamRequest: UpstreamRequest,
+  fetchUpstreamRatiosRequest: FetchUpstreamRatiosRequest,
   options?: Parameters<typeof customFetch>[1],
 ): Promise<fetchUpstreamRatiosResponse> => {
   const getHeaders = (
@@ -13648,7 +13842,7 @@ export const fetchUpstreamRatios = async (
       "Content-Type": "application/json",
       ...getHeaders(options?.headers),
     },
-    body: JSON.stringify(upstreamRequest),
+    body: JSON.stringify(fetchUpstreamRatiosRequest),
   });
 };
 
@@ -17874,173 +18068,6 @@ export const getUserGroups = async (
   });
 };
 
-export type revokeGuestFreeConsentResponse200ApplicationJson = {
-  data: ResponseDtoMessageResponse;
-  status: 200;
-};
-
-export type revokeGuestFreeConsentResponse200ApplicationXml = {
-  data: ResponseDtoMessageResponse;
-  status: 200;
-};
-
-export type revokeGuestFreeConsentResponseSuccess = (
-  | revokeGuestFreeConsentResponse200ApplicationJson
-  | revokeGuestFreeConsentResponse200ApplicationXml
-) & {
-  headers: Headers;
-};
-export type revokeGuestFreeConsentResponse =
-  revokeGuestFreeConsentResponseSuccess;
-
-export const getRevokeGuestFreeConsentUrl = () => {
-  return `/api/user/guest/free-consents`;
-};
-
-/**
- * @summary Revoke Guest Free Consent
- */
-export const revokeGuestFreeConsent = async (
-  freeConsentRevokeRequest: FreeConsentRevokeRequest,
-  options?: Parameters<typeof customFetch>[1],
-): Promise<revokeGuestFreeConsentResponse> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return customFetch<revokeGuestFreeConsentResponse>(
-    getRevokeGuestFreeConsentUrl(),
-    {
-      ...options,
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        ...getHeaders(options?.headers),
-      },
-      body: JSON.stringify(freeConsentRevokeRequest),
-    },
-  );
-};
-
-export type getGuestFreeConsentsResponse200ApplicationJson = {
-  data: ResponseDtoFreeConsentListData;
-  status: 200;
-};
-
-export type getGuestFreeConsentsResponse200ApplicationXml = {
-  data: ResponseDtoFreeConsentListData;
-  status: 200;
-};
-
-export type getGuestFreeConsentsResponseSuccess = (
-  | getGuestFreeConsentsResponse200ApplicationJson
-  | getGuestFreeConsentsResponse200ApplicationXml
-) & {
-  headers: Headers;
-};
-export type getGuestFreeConsentsResponse = getGuestFreeConsentsResponseSuccess;
-
-export const getGetGuestFreeConsentsUrl = () => {
-  return `/api/user/guest/free-consents`;
-};
-
-/**
- * @summary Get Guest Free Consents
- */
-export const getGuestFreeConsents = async (
-  options?: Parameters<typeof customFetch>[1],
-): Promise<getGuestFreeConsentsResponse> => {
-  return customFetch<getGuestFreeConsentsResponse>(
-    getGetGuestFreeConsentsUrl(),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
-};
-
-export type grantGuestFreeConsentResponse200ApplicationJson = {
-  data: ResponseDtoMessageResponse;
-  status: 200;
-};
-
-export type grantGuestFreeConsentResponse200ApplicationXml = {
-  data: ResponseDtoMessageResponse;
-  status: 200;
-};
-
-export type grantGuestFreeConsentResponseSuccess = (
-  | grantGuestFreeConsentResponse200ApplicationJson
-  | grantGuestFreeConsentResponse200ApplicationXml
-) & {
-  headers: Headers;
-};
-export type grantGuestFreeConsentResponse =
-  grantGuestFreeConsentResponseSuccess;
-
-export const getGrantGuestFreeConsentUrl = () => {
-  return `/api/user/guest/free-consents`;
-};
-
-/**
- * @summary Grant Guest Free Consent
- */
-export const grantGuestFreeConsent = async (
-  freeConsentGrantRequest: FreeConsentGrantRequest,
-  options?: Parameters<typeof customFetch>[1],
-): Promise<grantGuestFreeConsentResponse> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return customFetch<grantGuestFreeConsentResponse>(
-    getGrantGuestFreeConsentUrl(),
-    {
-      ...options,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...getHeaders(options?.headers),
-      },
-      body: JSON.stringify(freeConsentGrantRequest),
-    },
-  );
-};
-
 export type getGuestOwnPurposeObjectionResponse200ApplicationJson = {
   data: ResponseDtoOwnPurposeObjectionData;
   status: 200;
@@ -19793,162 +19820,6 @@ export const updateSelf = async (
   return customFetch<updateSelfResponse>(getUpdateSelfUrl(), {
     ...options,
     method: "PUT",
-  });
-};
-
-export type revokeFreeConsentResponse200ApplicationJson = {
-  data: ResponseDtoMessageResponse;
-  status: 200;
-};
-
-export type revokeFreeConsentResponse200ApplicationXml = {
-  data: ResponseDtoMessageResponse;
-  status: 200;
-};
-
-export type revokeFreeConsentResponseSuccess = (
-  | revokeFreeConsentResponse200ApplicationJson
-  | revokeFreeConsentResponse200ApplicationXml
-) & {
-  headers: Headers;
-};
-export type revokeFreeConsentResponse = revokeFreeConsentResponseSuccess;
-
-export const getRevokeFreeConsentUrl = () => {
-  return `/api/user/self/free-consents`;
-};
-
-/**
- * @summary Revoke Free Consent
- */
-export const revokeFreeConsent = async (
-  freeConsentRevokeRequest: FreeConsentRevokeRequest,
-  options?: Parameters<typeof customFetch>[1],
-): Promise<revokeFreeConsentResponse> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return customFetch<revokeFreeConsentResponse>(getRevokeFreeConsentUrl(), {
-    ...options,
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-      ...getHeaders(options?.headers),
-    },
-    body: JSON.stringify(freeConsentRevokeRequest),
-  });
-};
-
-export type getFreeConsentsResponse200ApplicationJson = {
-  data: ResponseDtoFreeConsentListData;
-  status: 200;
-};
-
-export type getFreeConsentsResponse200ApplicationXml = {
-  data: ResponseDtoFreeConsentListData;
-  status: 200;
-};
-
-export type getFreeConsentsResponseSuccess = (
-  | getFreeConsentsResponse200ApplicationJson
-  | getFreeConsentsResponse200ApplicationXml
-) & {
-  headers: Headers;
-};
-export type getFreeConsentsResponse = getFreeConsentsResponseSuccess;
-
-export const getGetFreeConsentsUrl = () => {
-  return `/api/user/self/free-consents`;
-};
-
-/**
- * @summary Get Free Consents
- */
-export const getFreeConsents = async (
-  options?: Parameters<typeof customFetch>[1],
-): Promise<getFreeConsentsResponse> => {
-  return customFetch<getFreeConsentsResponse>(getGetFreeConsentsUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export type grantFreeConsentResponse200ApplicationJson = {
-  data: ResponseDtoMessageResponse;
-  status: 200;
-};
-
-export type grantFreeConsentResponse200ApplicationXml = {
-  data: ResponseDtoMessageResponse;
-  status: 200;
-};
-
-export type grantFreeConsentResponseSuccess = (
-  | grantFreeConsentResponse200ApplicationJson
-  | grantFreeConsentResponse200ApplicationXml
-) & {
-  headers: Headers;
-};
-export type grantFreeConsentResponse = grantFreeConsentResponseSuccess;
-
-export const getGrantFreeConsentUrl = () => {
-  return `/api/user/self/free-consents`;
-};
-
-/**
- * @summary Grant Free Consent
- */
-export const grantFreeConsent = async (
-  freeConsentGrantRequest: FreeConsentGrantRequest,
-  options?: Parameters<typeof customFetch>[1],
-): Promise<grantFreeConsentResponse> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return customFetch<grantFreeConsentResponse>(getGrantFreeConsentUrl(), {
-    ...options,
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getHeaders(options?.headers),
-    },
-    body: JSON.stringify(freeConsentGrantRequest),
   });
 };
 

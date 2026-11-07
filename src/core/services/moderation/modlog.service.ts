@@ -23,6 +23,7 @@ const ACTION_COLORS = {
   "User Untimed Out": 0x57f287,
   "Messages Deleted": 0xed4245,
   "Channel Purged": 0xed4245,
+  "Reward IP Cleared": 0x5865f2,
 } as const;
 
 export type ModAction = keyof typeof ACTION_COLORS;
