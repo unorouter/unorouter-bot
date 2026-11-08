@@ -1,11 +1,15 @@
 import { GrantService } from "@/core/services/grant/grant.service";
-import { REWARDS, dollarsToQuota, formatDollars } from "@/shared/config/rewards";
+import {
+  REWARDS,
+  dollarsToQuota,
+  formatDollars,
+} from "@/shared/config/rewards";
 import { BOT_NAME } from "@/shared/config/branding";
 import { db } from "@/lib/db";
-import { boostSlot } from "@/lib/db-schema";
+import { boostSlot, rewardClaim, rewardGrant } from "@/lib/db-schema";
 import { logger } from "@/lib/logger";
 import { MemberDataService } from "@/core/services/members/member-data.service";
-import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { and, count, eq, gt, gte, lt, notExists, sql } from "drizzle-orm";
 import {
   type Guild,
   type GuildMember,
@@ -168,6 +172,7 @@ export class BoostService {
     const tick = async () => {
       try {
         await this.payDueSlots();
+        await this.payMissedFirstMonths();
       } catch (err) {
         logger.error("Boost cron tick failed", { error: String(err) });
       }
@@ -178,6 +183,116 @@ export class BoostService {
       intervalMs: CRON_INTERVAL_MS,
       payoutDays: PAYOUT_INTERVAL_DAYS,
     });
+  }
+
+  /**
+   * Pays the first month of a boost made before the booster linked an account:
+   * the instant payout only DMs a link prompt, so without this it was lost.
+   * Boosts older than one interval are left alone, the monthly cron owns them.
+   */
+  private static async payMissedFirstMonths(): Promise<void> {
+    const now = Date.now();
+    const missed = await db
+      .select({
+        guildId: boostSlot.guildId,
+        memberId: boostSlot.memberId,
+        messageId: boostSlot.sourceMessageId,
+        slots: count(),
+      })
+      .from(boostSlot)
+      .where(
+        and(
+          eq(boostSlot.active, true),
+          gt(
+            boostSlot.startedAt,
+            new Date(now - PAYOUT_INTERVAL_MS).toISOString(),
+          ),
+          // Leaves the live handler's own instant payout alone.
+          lt(boostSlot.startedAt, new Date(now - 10 * 60_000).toISOString()),
+          notExists(
+            db
+              .select({ id: rewardGrant.id })
+              .from(rewardGrant)
+              .where(
+                and(
+                  eq(rewardGrant.sourceType, "boost"),
+                  eq(rewardGrant.sourceId, boostSlot.sourceMessageId),
+                ),
+              ),
+          ),
+        ),
+      )
+      .groupBy(
+        boostSlot.guildId,
+        boostSlot.memberId,
+        boostSlot.sourceMessageId,
+      );
+
+    for (const row of missed) {
+      if (!row.messageId) continue;
+      if (!(await GrantService.linkedUserId(row.memberId).catch(() => null)))
+        continue;
+      const dollars = BOOST_GRANT_DOLLARS * row.slots;
+      const reason =
+        row.slots > 1 ? `server boost x${row.slots}` : "server boost";
+      const claimed = await db
+        .insert(rewardClaim)
+        .values({
+          sourceType: "boost",
+          guildId: row.guildId,
+          targetMemberId: row.memberId,
+          refId: row.messageId,
+          status: "pending",
+          pendingQuota: dollarsToQuota(dollars),
+          pendingReason: reason,
+        })
+        .onConflictDoNothing()
+        .returning({ id: rewardClaim.id });
+      if (!claimed.length) continue;
+
+      const result = await GrantService.grantQuota({
+        targetDiscordId: row.memberId,
+        quota: dollarsToQuota(dollars),
+        reason,
+        sourceType: "boost",
+        sourceId: row.messageId,
+        grantedByDiscordId: "system",
+        checkIpUnique: true,
+      }).catch((err) => {
+        logger.error("Boost first month grant failed", {
+          member: row.memberId,
+          error: String(err),
+        });
+        return null;
+      });
+
+      // Void an IP refusal so it is not refused and announced again every hour.
+      const status =
+        !result || !result.linked ? null : result.ipDuplicate ? "void" : "paid";
+      await (
+        status
+          ? db
+              .update(rewardClaim)
+              .set({
+                status,
+                rewardedQuota: status === "paid" ? dollarsToQuota(dollars) : 0,
+                rewardedAt: new Date().toISOString(),
+              })
+              .where(eq(rewardClaim.id, claimed[0]!.id))
+          : db.delete(rewardClaim).where(eq(rewardClaim.id, claimed[0]!.id))
+      ).catch((err) =>
+        logger.error("Boost first month claim update failed", {
+          member: row.memberId,
+          error: String(err),
+        }),
+      );
+      if (status === "paid")
+        logger.info("Boost first month paid after linking", {
+          member: row.memberId,
+          message: row.messageId,
+          dollars,
+        });
+    }
   }
 
   private static async payDueSlots(): Promise<void> {
@@ -297,7 +412,10 @@ export class BoostService {
           guildId: guild.id,
           memberId: member.id,
           sourceMessageId: null,
-          nextPayoutAt: plusDays(new Date(), PAYOUT_INTERVAL_DAYS).toISOString(),
+          nextPayoutAt: plusDays(
+            new Date(),
+            PAYOUT_INTERVAL_DAYS,
+          ).toISOString(),
         });
         // Retro months land as ONE grant, not N, to keep grants-log readable and
         // avoid hammering new-api.
