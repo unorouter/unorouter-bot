@@ -7,6 +7,8 @@ export const CHANNEL_SPAM_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 // never resets and the same message posted on three different days warns.
 export const DUPLICATE_SPAM_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 export const INVITE_JAIL_WARNINGS = 4; // Jail at 4th external invite
+// Guilds whose invites members may post: the owner's Coding server.
+export const ALLOWED_INVITE_GUILDS = new Set(["693908458986143824"]);
 
 // Ticket open/close churn limiter. Actions beyond LIMIT in the rolling window
 // are refused with a retry hint; at JAIL_LIMIT the user is jailed (chat

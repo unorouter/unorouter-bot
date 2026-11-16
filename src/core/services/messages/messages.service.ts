@@ -9,7 +9,10 @@ import { isAdmin } from "@/core/utils/command.utils";
 import { SHOULD_USER_LEVEL_UP } from "@/shared/config/features";
 import { LEVEL_LIST, levelUpMessage } from "@/shared/config/levels";
 import { JAIL } from "@/shared/config/roles";
-import { INVITE_JAIL_WARNINGS } from "@/shared/config/spam";
+import {
+  ALLOWED_INVITE_GUILDS,
+  INVITE_JAIL_WARNINGS,
+} from "@/shared/config/spam";
 import {
   GuildTextBasedChannel,
   Message,
@@ -290,7 +293,11 @@ export class MessagesService {
       if (!/^[A-Za-z0-9-]+$/.test(code)) continue;
       try {
         const invite = await message.client.fetchInvite(code);
-        if (invite.guild?.id !== message.guild.id) {
+        const target = invite.guild?.id;
+        if (
+          target !== message.guild.id &&
+          !ALLOWED_INVITE_GUILDS.has(target ?? "")
+        ) {
           hasExternalInvite = true;
           break;
         }
