@@ -386,7 +386,8 @@ export class GrantService {
       accountName: account.username,
       voteAgainHours: sourceType === "vote" ? 12 : undefined,
       voteSiteLabel,
-      actorId,
+      // A DM has no guild, and a mention there often renders as a raw id.
+      actor: actorId ? await this.formatUserGlobal(actorId) : null,
       reason
     });
     const user = await bot.users.fetch(targetDiscordId).catch(() => null);
@@ -577,6 +578,12 @@ export class GrantService {
   // Join-log style identifier: mention (username) displayName. Resolves the
   // member, falls back to the user, then to a bare mention if the account is
   // gone - so the log never reads "unknown-user".
+  static async formatUserGlobal(discordId: string): Promise<string> {
+    const user = await bot.users.fetch(discordId).catch(() => null);
+    if (!user) return `<@${discordId}>`;
+    return `<@${discordId}> (${user.username}) ${user.globalName ?? user.username}`;
+  }
+
   static async formatUser(
     guild: Guild,
     discordId: string

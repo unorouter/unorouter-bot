@@ -35,7 +35,7 @@ export function grantRewardEmbed(params: {
   accountName?: string | null;
   voteAgainHours?: number;
   voteSiteLabel?: string;
-  actorId?: string | null;
+  actor?: string | null;
   reason?: string | null;
 }): APIEmbed {
   const copy = COPY[params.sourceType] ?? COPY.command;
@@ -48,8 +48,8 @@ export function grantRewardEmbed(params: {
 
   const lines = [intro];
   const actorLabel = ACTOR_LABEL[params.sourceType];
-  if (params.actorId && actorLabel) {
-    lines.push(`**${actorLabel}:** <@${params.actorId}>`);
+  if (params.actor && actorLabel) {
+    lines.push(`**${actorLabel}:** ${params.actor}`);
   }
   const reason = params.reason?.trim();
   if (reason) {
