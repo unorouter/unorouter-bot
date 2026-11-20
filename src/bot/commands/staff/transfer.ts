@@ -2,7 +2,6 @@ import { GrantService } from "@/core/services/grant/grant.service";
 import { dollarsToQuota, formatDollars } from "@/shared/config/rewards";
 import {
   canTransfer,
-  isLinked,
   safeDeferReply,
   safeEditReply,
   STAFF_COMMAND_PERMISSION,
@@ -57,13 +56,6 @@ export class TransferCommand {
       await safeEditReply(
         interaction,
         "You are not allowed to use this command.",
-      );
-      return;
-    }
-    if (!isLinked(caller)) {
-      await safeEditReply(
-        interaction,
-        `You need to link your Discord account first. ${GrantService.linkPrompt()}`,
       );
       return;
     }
