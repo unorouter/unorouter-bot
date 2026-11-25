@@ -1,288 +1,92 @@
-# CLAUDE.md — unorouter-bot
+# CLAUDE.md, unorouter-bot
 
-Discord bot for unorouter.com. discordx (decorators), drizzle + postgres-js, Google Gemini for AI chat. Runs on the Talos cluster (namespace `services`, deploy `unorouter-bot`); ships via GHCR image + ArgoCD, never manual binaries.
+Discord bot for unorouter.com. discordx on discord.js, drizzle plus postgres-js, Gemini via `@ai-sdk/google` with key rotation. Runs on the Talos cluster, namespace `services`, deploy `unorouter-bot`. Prod is one `bun build --compile` binary on distroless (no shell, no `.env`). `bun dev` locally.
 
-## Stack
+## Deploy and config
 
-- Runtime: Node 22 (alpine in prod), bun in dev (`bun dev`)
-- Framework: discordx 11 on discord.js 14
-- DB: Drizzle ORM + postgres-js (`src/lib/db/`, schema in `src/lib/db-schema/`)
-- AI: `@ai-sdk/google` with GoogleClientRotator (key rotation)
-- Build: tsup → `dist/main.js`
-- Env: dotenvx (`bun start` → `dotenvx run --env NODE_ENV=production -- node dist/main.js`)
+- Push to `main`. The `GHCR Image` workflow builds, `unorouter-ci` pins `k8s/deployment.yaml`, ArgoCD rolls it (10 to 20 min). Done only when ArgoCD shows the new image. `build-local.sh` is retired. Never build or push an image by hand, never push `:latest`. Local `docker build` only to check it compiles.
+- Runtime env comes from OpenBao `secret/bot-env` through ESO into the `bot-env` Secret, not GitHub secrets or dotenvx. Change it with `bao kv patch` (never `put`), force sync the ExternalSecret, then `kubectl -n services rollout restart deploy/unorouter-bot`.
+- Never give the bot new-api's root token again. `NEW_API_BOT_TOKEN` (bot-env) must equal `BOT_SERVICE_TOKEN` (`secret/newapi-env`). Rotate both to the same value or the bot 401s.
 
-## Deploy
+## Boot
 
-Talos + ArgoCD. Push to `main`: the `GHCR Image` workflow builds the amd64 image tagged by
-SHA, `unorouter-ci` commits the pin into `k8s/deployment.yaml`, ArgoCD rolls it (10 to 20
-minutes). A deploy is done when ArgoCD shows the new image. `build-local.sh` is retired: never
-docker build or push an image by hand, never push `:latest`. Local `docker build` is fine for
-verifying compile only.
+`bootGuild(g)` runs per guild in parallel. Heavy backfills (level rewards, invite backlog) are NOT on boot because they loop every member. They live in the staff `!verify` command (aliases `!verify-user(s)`, `!verify-all`). Run `!verify` once after a deploy for a full reconcile.
 
-Runtime config comes from the k8s secret (OpenBao -> ESO), NOT GitHub secrets/dotenvx `.env`
-anymore. To change a value: patch the OpenBao path feeding `bot-env`, then
-`kubectl -n services rollout restart deploy/unorouter-bot`. `NEW_API_URL`/`DATABASE_URL` etc.
-are injected as plain pod env (visible in `kubectl exec ... env`, no `.env` file on disk).
+## Conventions
 
-## Architecture
+- Resolve channels by NAME substring (`findTextChannel(guild, "verify")`). Never store Discord IDs in code. Emoji renames keep working.
+- Brand strings are env driven (`BOT_NAME`, `WEBSITE_URL`). No hardcoded "unorouter".
+- Grant amounts are env driven IN DOLLARS. `src/shared/config/rewards.ts` is the ONE place reward env vars are read (`REWARDS`, `dollarsToQuota()`, `formatDollars()`). Never `parseFloat(process.env.*_GRANT_DOLLARS)` in a service.
+- Money for display ALWAYS goes through `formatDollars()`. A bare `toFixed(2)` misstates sub cent payouts ($0.025).
+- new-api auth is `Authorization: <NEW_API_BOT_TOKEN>` only, no `New-Api-User`. It is a service token, and new-api `BotAuth` accepts it on only `discord_grant`, `discord_transfer`, `manage` (only `set_free_rate_limit_window_pct`) and `:id/bot_view`. A new endpoint means widening that allowlist in new-api first. Read user fields via `bot_view`, never `/api/user/:id`.
+- Crash guards in `main.ts` only log, never exit.
+- knip flags discordx classes as unused. They load by decorator side effect in `src/bot/index.ts`. Ignore it.
+- Never use co-authored-by or any Claude reference in git, no dash punctuation or Unicode arrows, no tests unless asked, comments only for a non-obvious why, no barrel files when splitting modules.
 
-```
-src/main.ts                                  bot entry, intents, lifecycle, crash guards
-src/bot/index.ts                             discordx decorator loader (static imports only)
-src/bot/commands/staff/                      slash commands: /grant /verify-panel /ticket-panel /verify-users
-src/bot/events/                              gateway listeners: ai-chat, guild-member-add/-update, message-create, thread-create
-src/bot/interactions/                        button + modal handlers: claim_connect, ticket_*, bug_*, reward_modal
-src/core/services/grant/grant.service.ts     new-api /api/user/discord_grant client, connect/boost bonuses, log channel announce
-src/core/services/server-tag/                server tag wear windows: $/day while the guild tag is worn
-src/core/services/roles/                     role + jail isolation logic
-src/core/services/moderation/modlog.service.ts  mod log: jails, unjails, timeouts, warns, kicks, bans, message deletions (with amount) to DB + the mod-logs channel (MOD_LOG_CHANNEL)
-src/core/services/messages/                  XP + level-up
-src/core/utils/command.utils.ts              purgeOwnPanels, safeDefer/EditReply, isStaff
-src/shared/config/                           env-driven branding, roles, levels, features
-src/shared/utils/channel.utils.ts            NAME-substring channel resolution (emoji-rename resilient)
-src/lib/telemetry.ts                         botLogger (PostHog + stdout)
-src/lib/db-schema/                           drizzle schema: guild, member, memberGuild, memberRole, memberMessages, ticket, ticketMessage, bugReport, grantLog
-```
+## Member count channels
 
-### Boot (clientReady)
+`MEMBERS_COUNT_CHANNELS` (name substrings) are renamed to the live non-bot count. Discord caps renames at 2 per 10 min per channel.
 
-Kept lean. `bootGuild(g)` runs per guild in parallel, in order: upsert guild row (FK parent) -> prime invite snapshot + warm member cache (parallel) -> replay vote-role holds -> refresh member-count channels. Then an hourly member-count interval + the webhook server. Heavy backfills (level rewards, invite backlog) are NOT on boot - they loop every member/guild, so they live in the staff `!verify` command instead. Run `!verify` once after a deploy for a full reconcile.
+## Server tag reward
 
-### Member-count voice channels
+- Pays per FULL DAY the guild tag is worn, as wear windows in `server_tag_wears`. Dropping the tag discards partial progress, so toggling cannot manufacture time. A partial unique index allows one open window per member.
+- Gate on `identityEnabled === true` AND `identityGuildId === guildId`. Discord leaves a STALE identity guild id on people who wore a since-renamed tag.
+- `reconcile()` (boot and hourly) never backdates credit and closes a stale window WITHOUT paying. So no tag backfill command is needed.
+- Payouts are HELD, not skipped, when the user is unlinked or upstream refuses (`ipDuplicate`), capped at `MAX_CATCHUP_PAYOUTS` per tick.
+- Discord has NO API to SET a user's tag. Do not build an "apply the tag" button.
 
-Locked voice channels named like `📊│members:` auto-update to the live non-bot count. Config `MEMBERS_COUNT_CHANNELS` (comma-separated NAME substrings, from the `bot-env` secret). `MemberDataService.updateMemberCount(guild)` renames each matching channel to `<name> <count>` on guildMemberAdd/Remove + on boot + hourly. Discord caps channel renames at 2/10min per channel.
+## Changing reward amounts
 
-GOTCHA: for the bot to rename a locked channel it needs VIEW + MANAGE_CHANNELS on it. The bot's server role has MANAGE_CHANNELS globally, but a locked channel (deny CONNECT for @everyone) still blocked it until a **role overwrite** was added. Add the overwrite against the bot's GUILD ROLE id (type 0), NOT the app/client id as a member overwrite (type 1) - the app id is not the bot's member and the overwrite silently does nothing. After changing channel perms, RESTART the bot so discord.js re-caches the channel with the new overwrites, or it computes perms from the stale cache and keeps failing with `50001 Missing Access`.
+Amounts live in OpenBao `secret/bot-env`, not in code. The bot serves them at `GET /rewards` (port 4000, cluster internal) and the site docs fetch it hourly, so a cut needs no site deploy or translation edit.
 
-### `!verify` (staff prefix command)
-
-Full member reconcile, on demand: upsert every member into the DB, assign the Verified role (skip jailed), backfill any earned-but-unpaid level reward, and reconcile the invite backlog for the guild. Aliases: `!verify` (canonical), `!verify-user(s)`, `!verify-all`.
-
-### `/members` (slash command)
-
-Member overview: Users/Bots count, 30d/7d/24h memberflow, and a growth-chart PNG (QuickChart, built from live join dates - no DB history needed). `MemberDataService.memberFlowStats()` + `membersEmbed()`.
-
-### Conventions
-
-- Channel resolution by NAME substring via `findTextChannel(guild, "verify")` etc. Never store Discord IDs in code. Emoji renames (`verify` → `✅│verify`) keep working.
-- Brand strings env-driven: `BOT_NAME`, `WEBSITE_URL`. No hardcoded "unorouter".
-- All grant amounts ENV-DRIVEN IN DOLLARS. `src/shared/config/rewards.ts` is the ONE place the reward env vars are read (`REWARDS`), plus `dollarsToQuota()` (`QUOTA_PER_DOLLAR`, default `500000` = $1) and `formatDollars()`. Services and panels import from there; never `parseFloat(process.env.*_GRANT_DOLLARS)` in a service again.
-- Money for display ALWAYS goes through `formatDollars()`. It keeps the cents pair ($0.50, not $0.5) and a third decimal only when it carries meaning ($0.025, not a rounded $0.03). A bare `toFixed(2)` silently misstates any sub-cent payout.
-- new-api auth: `Authorization: <NEW_API_BOT_TOKEN>` only, no `New-Api-User` header. It is a SERVICE token (new-api `BOT_SERVICE_TOKEN`), not a user account, and upstream `BotAuth` accepts it on only four routes: `discord_grant`, `discord_transfer`, `manage` (restricted to `set_free_rate_limit_window_pct`), and `:id/bot_view`. Anything else 401s, so reaching for a new admin endpoint here means widening that allowlist in new-api first. Read user fields via `bot_view` (returns `quota` + `setting`), never `/api/user/:id`.
-- Crash-guard in `main.ts` — `unhandledRejection` + `uncaughtException` only log, never exit.
-- discordx classes look "unused" to knip — they're loaded via decorator side-effects in `src/bot/index.ts`. Ignore those flags.
-- No barrel files when splitting modules. Move symbol, update all importers via `grep`/`rg`.
-
-### Server tag reward
-
-Pays per FULL DAY the guild's tag is worn, tracked as wear windows in `server_tag_wears`.
-Duration-based on purpose: dropping the tag closes the window and discards its partial progress,
-so toggling it can never manufacture time. A partial unique index on `(member_id, guild_id) WHERE
-active` enforces one open window per member at the DB level.
-
-- Detection is `user.primaryGuild` off `guildMemberUpdate` (fires on change; needs the
-  `GuildMembers` intent). Gate on `identityEnabled === true` AND `identityGuildId === guildId` -
-  Discord leaves a STALE `identity_guild_id` on people who used to wear a since-renamed tag, so
-  matching the guild id alone pays non-wearers.
-- `reconcile()` runs on boot and hourly to repair windows missed during downtime. It never
-  backdates credit, and closes a stale window WITHOUT paying (we cannot know when the tag came
-  off). This is why there is no tag backfill command and none is needed.
-- Payouts are HELD, not skipped, when the recipient is unlinked or upstream refuses
-  (`ipDuplicate`): `nextPayoutAt` is left alone so the day is retried, capped at
-  `MAX_CATCHUP_PAYOUTS` per tick so a late link cannot burst hundreds of grant calls.
-- **Discord has NO API for SETTING a user's tag** - it is a profile setting only the user's own
-  client can change, and no OAuth scope exposes it. The verify-panel button can only report
-  status; do not try to build an "apply the tag" button.
-
-## Changing reward amounts (runbook)
-
-Amounts live in OpenBao, NOT in code. The bot serves them at `GET /rewards` (cluster-internal,
-port 4000, no public ingress) and the website docs fetch that endpoint hourly, so a cut needs
-no site deploy and no translation edits.
+Vars `CONNECT_GRANT_DOLLARS`, `VOTE_GRANT_DOLLARS`, `BOOST_GRANT_DOLLARS`, `INVITE_GRANT_DOLLARS`, `SERVER_TAG_GRANT_DOLLARS`, `LEVEL_GRANT_DOLLARS` (comma list positional to `LEVEL_ROLES`). `0` disables a reward and the panels switch to "free balance" wording. Bug bounty has no env var, staff type the amount.
 
 ```bash
-# 1. patch OpenBao (kv v2 at mount `secret`, path `bot-env`). USE patch, NOT put:
-#    put replaces the whole secret. Token over stdin, never in the exec argv.
-cd ~/MEGA/Projects/ai-api/infra
-BT=$(sops -d secrets/openbao-init.sops.yaml | grep -oP 'root_token:\s*\K\S+')
-printf '%s\n' "$BT" | kubectl -n openbao exec -i openbao-0 -- sh -c 'read -r BAO_TOKEN && export BAO_TOKEN && bao kv patch secret/bot-env \
-  CONNECT_GRANT_DOLLARS=0.50 VOTE_GRANT_DOLLARS=0.025 BOOST_GRANT_DOLLARS=0.50 \
-  LEVEL_GRANT_DOLLARS=0.03,0.05,0.13,0.25,0.50,1,2.50,5,12.50'
-
-# 2. ESO refresh is 1h; force it, then restart so the pod picks up new env
+bao kv patch -mount=secret bot-env CONNECT_GRANT_DOLLARS=0.50 VOTE_GRANT_DOLLARS=0.025
 kubectl -n services annotate externalsecret bot-env force-sync=$(date +%s) --overwrite
 kubectl -n services rollout restart deploy/unorouter-bot
-
-# 3. verify what is ACTUALLY being paid
-kubectl -n services exec deploy/unorouter-bot -- wget -qO- http://localhost:4000/rewards
+kubectl -n services port-forward deploy/unorouter-bot 4000   # then, in another shell
+curl -s localhost:4000/rewards
 ```
 
-Then re-run `/verify-panel` and `/vote-panel` in Discord (both read the amount at runtime;
-`purgeOwnPanels` makes re-running idempotent). Docs follow within the hour.
+Then re-run `/verify-panel` and `/vote-panel` (`purgeOwnPanels` makes that idempotent).
 
-Env vars: `CONNECT_GRANT_DOLLARS`, `VOTE_GRANT_DOLLARS`, `BOOST_GRANT_DOLLARS`,
-`INVITE_GRANT_DOLLARS`, `SERVER_TAG_GRANT_DOLLARS`, `LEVEL_GRANT_DOLLARS` (comma list positional
-to `LEVEL_ROLES`). Set a value to `0` to disable that reward entirely; the panels degrade to
-"free balance" wording. Bug bounty has NO env var - staff type the amount per report.
+- Deploy the bot BEFORE patching OpenBao when the formatter changed, or panels advertise a rounded figure.
+- Non-bot surfaces do not update. The boosters post is Don's prose. Edit it as Don and grep the pinned posts in INFORMATION for stale figures after every cut.
 
-### Gotchas learned the hard way
+## Migrations
 
-- **Deploy the bot BEFORE patching OpenBao** when the formatter changed, or the panels advertise
-  a rounded figure while the bot pays the real one.
-- **Non-bot surfaces do not auto-update.** The `❤️│boosters` post is authored by Don and states
-  the boost amount in prose; edit it as Don in the Discord web client.
-  Grep the pinned posts in `📢 INFORMATION` for stale figures after every cut.
-- **The bot DOES run migrations on boot** (a failure only logs "Database migration failed" and
-  the bot keeps running, so it is easy to miss). Prefer letting it apply them: generate with
-  drizzle-kit, commit, deploy. If you apply SQL BY HAND you must also
-  (a) `ALTER TABLE <t> OWNER TO unorouter;` plus its `_id_seq`, and `ALTER TYPE <enum> OWNER TO
-  unorouter;` - the app connects as `unorouter`, and objects created as `postgres` are either
-  invisible to it or refuse `ALTER TYPE ... ADD VALUE` with "must be owner of type"; and
-  (b) insert the migration's sha256 into `drizzle.__drizzle_migrations (hash, created_at)` using
-  the `when` value from `drizzle/meta/_journal.json`, or the runner replays it on every boot and
-  fails on the already-applied enum value.
-- **A channel that denies `@everyone` SEND_MESSAGES needs a bot ROLE overwrite** (type 0, against
-  the bot's guild role, e.g. `UnoRouter Bot`), not a member overwrite. Without it a panel command
-  purges the old post and then fails to send, leaving the channel empty. Restart the bot after
-  changing channel perms or discord.js keeps computing from its stale cache.
+The bot runs migrations on boot, and a failure only logs "Database migration failed". Prefer drizzle-kit generate, commit, deploy. SQL applied BY HAND also needs (a) `OWNER TO unorouter` on the table, its `_id_seq` and any enum type, since the app connects as `unorouter`, and (b) the migration's sha256 inserted into `drizzle.__drizzle_migrations (hash, created_at)` with the `when` from `drizzle/meta/_journal.json`, or it replays every boot.
 
-## Editing the Discord server itself (Browser MCP)
+## Channel permissions
 
-Most server-admin tasks (rename channel, delete channel, edit pinned panel posts, post announcements) are NOT bot code. They go through the Discord web client via `mcp__chrome-devtools__*` tools. Brave runs with remote-debugging on port 9223; the chrome-devtools MCP attaches there.
+A locked channel (member count) or one denying `@everyone` SEND_MESSAGES needs an overwrite for the bot's GUILD ROLE (type 0), not the app id as a member (type 1, silently does nothing). Without it renames fail with `50001 Missing Access`, and a panel command purges the old post then cannot send. Restart the bot after any permission change, discord.js keeps a stale cache.
 
-TWO ACCOUNTS, and the difference matters: **Brave (9223) is `Don`** (Admin role, authored the
-pinned posts, so only Don can edit them). **Chrome (9224) is `mr.countdown`, the SERVER
-OWNER** - it holds only the `Verified` role, so owner status is what grants it authority; use it
-for anything role/permission related that Don cannot do. The MCP is attached to Brave only;
-drive Chrome over raw CDP against its `webSocketDebuggerUrl`.
+## Editing the Discord server (browser)
 
-> **Shipping a release post?** See [RELEASE-POSTS.md](RELEASE-POSTS.md) for the end-to-end runbook: when to use changelog vs announcements vs blog, the post+publish+edit MCP scripts, and the full blog flow (registry + content + 18-locale translation fan-out).
+- Server admin work (rename or delete channels, edit pinned posts, announcements) is NOT bot code. Do it in the Discord web client over CDP. Release posts follow [RELEASE-POSTS.md](RELEASE-POSTS.md).
+- Two accounts. Brave 9223 is `Don` (Admin, authored the pinned posts, only Don can edit them, the chrome-devtools MCP attaches here). Chrome 9224 is `mr.countdown`, the SERVER OWNER, for role and permission work Don cannot do. Drive it over raw CDP.
+- Never use `/api/v9` with the user token. Posting that way logged the session out on 2026-10-26 and API search drew 429s. Deleting a channel is irreversible, confirm with the user first.
+- To replace a bot panel, re-run its slash command. To trigger one, click the message textbox, clear it, `type_text "/verify-pa"`, wait for the listbox, press Tab then Enter.
+- Discord markdown supports `[text](url)`, `<url>` suppresses the preview, mentions are `<#channelId>`, `<@&roleId>`, `<@userId>`.
 
-### Use the web UI, never `/api/v9` with the user token
+## Cluster access
 
-Posting through `POST /channels/{id}/messages` logged the session out after the second message on 2026-10-26, and search through the API drew a 429 on nearly every request. Rename and delete channels, post, edit, pin and search in the Discord web client. Deleting a channel is irreversible: confirm with the user first.
-
-To replace a bot-authored panel embed, re-run the bot's `/verify-panel` (or equivalent) command. `purgeOwnPanels` in [src/core/utils/command.utils.ts](src/core/utils/command.utils.ts) deletes the bot's previous post in the channel before reposting, so re-running the command is idempotent.
-
-### Trigger a bot slash command without typing
-
-Discord guild-command sync can lag a few seconds after deploy. Instead of typing `/verify-panel` and pressing Tab+Enter, drive the textbox via `mcp__chrome-devtools__type_text` after focusing the message input (`role="textbox"`, classes include `slateTextArea_*`):
-
-1. `click` the textbox uid
-2. `press_key Control+a` then `Delete` to clear
-3. `type_text "/verify-pa"` — wait for the listbox to surface `/verify-panel`
-4. `press_key Tab` to insert the slash-command chip
-5. `press_key Enter` to send
-
-### Markdown that works in Discord messages
-
-- `[text](url)` is supported in regular messages, so URLs can be hidden.
-- `<url>` brackets suppress link embed preview.
-- Channel mentions: `<#1510752428440555704>` (no name required, channel resolves to its current name).
-- Role mentions: `<@&roleId>`. User mentions: `<@userId>`.
-
-### Where common channel IDs live
-
-Don't hardcode. Find a channel by name in the Discord UI. The bot doesn't need IDs at all (NAME substring resolution).
-
-## Cluster access (logs, env, DB): Talos, not don
-
-Kubeconfig is the Teleport local proxy file `~/.kube/teleport-unorouter.yaml` (`systemctl --user status tsh-kube`; after a `tsh login`, restart that unit). No cert kubeconfig is kept on disk; `infra/scripts/dr.sh kubeconfig` fetches one over the Talos API for DR and every request with it pages. Nodes have no SSH (Talos): `talosctl`, never `ssh`.
-
-Logs + env (bot runs in namespace `services`, deploy/pod `unorouter-bot`):
+Kubeconfig `~/.kube/teleport-unorouter.yaml` (restart `tsh-kube` after `tsh login`). Nodes are Talos, `talosctl`, never `ssh`. Env is the `bot-env` Secret, the pod has no shell.
 
 ```bash
 kubectl -n services logs deploy/unorouter-bot --tail 100 -f
-kubectl -n services exec deploy/unorouter-bot -- env | grep -E 'NEW_API|BOT_NAME|DATABASE_URL'
 ```
 
-Env is now plain pod env (k8s secret via OpenBao/ESO); there is NO `.env` file on disk and
-no dotenvx wrapper in prod. `kubectl exec ... env` IS the source of truth.
+DBs are CloudNativePG in namespace `databases`. new-api goes through `tsh db connect newapi-pg`. The bot DB is `unorouter-bot-db` on cluster `bot-pg`. Exec into its CURRENT primary only as a last resort (`kubectl -n databases get cluster bot-pg -o jsonpath='{.status.currentPrimary}'`, it drifts on failover). App user endpoints are `bot-pg-rw` and `newapi-pg-rw`, creds in OpenBao.
 
-Databases: two CloudNativePG clusters in namespace `databases`, reach via `kubectl exec`
-into the current primary (`kubectl -n databases get cluster <name> -o jsonpath='{.status.currentPrimary}'`;
-the primary drifts on failover). Bot DB is named `unorouter-bot-db`; new-api DB is `newapi`:
+## Server channels (guild 1498300365001588746)
 
-```bash
-# bot DB
-kubectl -n databases exec bot-pg-1 -c postgres -- \
-  psql -U postgres -d unorouter-bot-db -c "SELECT count(*) FROM member;"
-# new-api DB (the users table the bot grants against)
-kubectl -n databases exec newapi-pg-1 -c postgres -- \
-  psql -U postgres -d newapi -c "SELECT id, username, discord_id FROM users WHERE discord_id <> '' LIMIT 10;"
-```
+IDs are for navigation only (`discord.com/channels/1498300365001588746/<id>`). The pinned information, announcements and changelog posts are Don's, edited in place in the browser.
 
-For an app-user connection instead of superuser, the `-rw` service (`bot-pg-rw` /
-`newapi-pg-rw`) is the writable endpoint; creds are in OpenBao.
-
-## Don'ts
-
-- No `co-authored-by` / "Generated with Claude Code" / Claude refs in commits, PRs, issues.
-- No ASCII-dash punctuation. No em/en dash, no Unicode arrows in source/commits.
-- No tests unless explicitly requested.
-- No bloated comments. Comment only non-obvious WHY, one terse line. No restating code.
-- No barrel re-export files when splitting modules. Rewrite each importer.
-- Deploy only by pushing to `main`; `build-local.sh` is retired.
-- Don't give the bot new-api's root access token again. It now holds its own scoped `NEW_API_BOT_TOKEN`; rotating it means patching BOTH `secret/newapi-env` (`BOT_SERVICE_TOKEN`) and `secret/bot-env` (`NEW_API_BOT_TOKEN`) to the SAME value, or the bot silently falls through to admin auth and 401s.
-
-## Server channels (UnoRouter, guild 1498300365001588746)
-
-Resolve by NAME substring, never hardcode IDs in code. IDs below are for fast
-navigation only (`discord.com/channels/1498300365001588746/<id>`). Layout grouped
-by category. The three pinned onboarding posts (information / announcements /
-changelog) are all authored by Don and edited in-place; update them via Browser
-MCP, not bot code.
-
-### 📢 INFORMATION (read-only, staff-posted)
-
-- **📌│information** `1509890163285950636` (Rules channel) — welcome + platform
-  overview. "Unified API gateway, 70+ AI models (OpenAI, Anthropic, Google)."
-  Links: dashboard (`/en/login`), docs (`/en/docs`), models (`/en/models`),
-  Discord guidelines. Single pinned post.
-- **📣│announcements** `1509891684282925216` (Announcement channel) — headline
-  pitch ("One API key, 70+ models, single OpenAI-compatible endpoint"). Sections:
-  Start here (models / pricing / docs / chat playground), Earn free balance
-  (verify `$1` one-time, boost `$1`/boost, bug-bounty up to `$50`), Channels
-  (help / feature-requests / model-requests / changelog).
-- **📝│changelog** `1509906155043029202` (Announcement channel) — "Latest first.
-  Major shipped changes only." Tracks bot + site releases (bot launch, verify
-  panel, boost auto-grant, bug-bounty forum, ticket system, deep-link login,
-  settings UI).
-- **🚀│boosters** `1510368497887084555` — boost reward surface ($1/boost
-  auto-grant).
-- **✅│verify** `1510752428440555704` — Discord-link verify panel; claim `$1`
-  one-time + linked role. Driven by `/verify-panel` + `claim_connect` interaction.
-
-### 💬 COMMUNITY
-
-- **💬│general** `1509888910732431490` — open chat.
-- **🗳️│feature-requests** `1509888593949102170` — product requests.
-- **🧠│model-requests** `1510746273135722507` — requests to add specific models.
-- **🤖│bot-commands** `1509889754894700637` — bot command usage.
-
-### 🛠️ SUPPORT
-
-- **🎫│create-ticket** `1510366683070595192` — opens a private per-request ticket
-  channel; staff grant balance from inside (`/ticket-panel`, `ticket_*`
-  interactions).
-- **🛡️│bug-bounty** `1510366688045170708` (Forum) — tiered rewards up to
-  `$50`/finding (`bug_*` interactions, `reward_modal`).
-
-### 📋 LOGS (staff/private)
-
-- **🛡️│moderator-only** `1509890163827019859`
-- **🌟│join-events** `1509907917803884554`
-- **📄│ticket-logs** `1510366691454882014`
-- **🎁│grants-log** `1510366694705594429` (grant.service announce target)
-
-### 🔒 PRISON
-
-- **🔒│jail** `1510366698749038706` — isolation channel for the role/jail logic
-  in `core/services/roles/`.
-
-### Partner servers (dedicated channel, server NOT ours)
-
-- **The AI Bunker** (guild `1223037722998865940`) to **♠️unorouter**
-  `1513243139064856697` — plain text channel we own on a friend's server. Carries
-  the promo intro + mirrored changelog entries. We post as user "Don" via Browser
-  MCP; no bot, no crosspost. See [RELEASE-POSTS.md](RELEASE-POSTS.md).
+- INFORMATION information `1509890163285950636`, announcements `1509891684282925216`, changelog `1509906155043029202`, boosters `1510368497887084555`, verify `1510752428440555704`
+- COMMUNITY general `1509888910732431490`, feature-requests `1509888593949102170`, model-requests `1510746273135722507`, bot-commands `1509889754894700637`
+- SUPPORT create-ticket `1510366683070595192`, bug-bounty forum `1510366688045170708`
+- LOGS moderator-only `1509890163827019859`, join-events `1509907917803884554`, ticket-logs `1510366691454882014`, grants-log `1510366694705594429`
+- PRISON jail `1510366698749038706`
+- Partner server, not ours. The AI Bunker (guild `1223037722998865940`), channel unorouter `1513243139064856697`. Promo intro plus mirrored changelog, posted as Don in the browser, no bot, no crosspost.
