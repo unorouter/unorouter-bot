@@ -1,5 +1,6 @@
 import { VoteService } from "@/core/services/vote/vote.service";
 import { logger } from "@/lib/logger";
+import { bot } from "@/main";
 import { VoteSite } from "@/types";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Elysia, status } from "elysia";
@@ -53,8 +54,9 @@ function topggVoter(body: TopggBody): { test: boolean; userId: string | null } {
   };
 }
 
-// DiscordServers documents no payload, so the voter id and event are read
-// from the usual field names and anything unrecognised is logged, not paid.
+// DiscordServers documents no payload. Observed for a bump:
+// {"type":"gems","payload":{"amount":0,"user":{"id":"..."},"server":"<guild>"}}
+// Anything unrecognised is logged, not paid.
 type DiscordServersBody = Record<string, unknown>;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -82,6 +84,7 @@ function discordServersVote(body: DiscordServersBody): {
       ["data", "event"],
     ])?.toLowerCase() ?? null;
   const userId = pick(body, [
+    ["payload", "user", "id"],
     ["user", "id"],
     ["userId"],
     ["user_id"],
@@ -163,6 +166,11 @@ export const voteRoutes = new Elysia({ prefix: "/webhook" })
     }
     const parsed: DiscordServersBody = isRecord(body) ? body : {};
     const vote = discordServersVote(parsed);
+    const server = pick(parsed, [["server"], ["payload", "server"]]);
+    if (!server || !bot.guilds.cache.has(server)) {
+      logger.warn("DiscordServers webhook for another server", { server });
+      return { ok: true };
+    }
     if (
       !vote.event ||
       !["gems", "bump", "vote"].includes(vote.event) ||
