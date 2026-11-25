@@ -8,7 +8,11 @@ import { Elysia, status } from "elysia";
 //   x-topgg-signature: t=<unix>,v1=<hmac-sha256 hex of `${t}.${rawBody}`>
 // Key is the whs_ secret created on the dashboard. Verify against the RAW body
 // (a re-stringified object would differ and fail), reject on >5min skew (replay).
-function verifyTopggSignature(rawBody: string, header: string | undefined, secret: string | undefined): boolean {
+function verifyTopggSignature(
+  rawBody: string,
+  header: string | undefined,
+  secret: string | undefined,
+): boolean {
   if (!secret || !header) return false;
   const parts = Object.fromEntries(
     header.split(",").map((kv) => {
@@ -23,7 +27,9 @@ function verifyTopggSignature(rawBody: string, header: string | undefined, secre
   const skew = Math.abs(Date.now() / 1000 - Number(ts));
   if (!Number.isFinite(skew) || skew > 300) return false;
 
-  const expected = createHmac("sha256", secret).update(`${ts}.${rawBody}`).digest("hex");
+  const expected = createHmac("sha256", secret)
+    .update(`${ts}.${rawBody}`)
+    .digest("hex");
   const a = Buffer.from(expected);
   const b = Buffer.from(sig);
   return a.length === b.length && timingSafeEqual(a, b);
@@ -41,7 +47,64 @@ function topggVoter(body: TopggBody): { test: boolean; userId: string | null } {
   if (body.type === "test" || body.type === "webhook.test") {
     return { test: true, userId: null };
   }
-  return { test: false, userId: body.data?.user?.platform_id ?? body.user ?? null };
+  return {
+    test: false,
+    userId: body.data?.user?.platform_id ?? body.user ?? null,
+  };
+}
+
+// DiscordServers documents no payload, so the voter id and event are read
+// from the usual field names and anything unrecognised is logged, not paid.
+type DiscordServersBody = Record<string, unknown>;
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+function pick(body: DiscordServersBody, paths: string[][]): string | null {
+  for (const path of paths) {
+    let v: unknown = body;
+    for (const k of path) v = isRecord(v) ? v[k] : undefined;
+    if (typeof v === "string" || typeof v === "number") return String(v);
+  }
+  return null;
+}
+
+function discordServersVote(body: DiscordServersBody): {
+  event: string | null;
+  userId: string | null;
+} {
+  const event =
+    pick(body, [
+      ["event"],
+      ["type"],
+      ["eventType"],
+      ["data", "event"],
+    ])?.toLowerCase() ?? null;
+  const userId = pick(body, [
+    ["user", "id"],
+    ["userId"],
+    ["user_id"],
+    ["user"],
+    ["member", "id"],
+    ["data", "user", "id"],
+    ["data", "userId"],
+  ]);
+  return {
+    event,
+    userId: userId && /^\d{15,21}$/.test(userId) ? userId : null,
+  };
+}
+
+function tokenMatches(
+  header: string | undefined,
+  secret: string | undefined,
+): boolean {
+  if (!secret || !header) return false;
+  const given = header.replace(/^Bearer\s+/i, "").trim();
+  const a = Buffer.from(given);
+  const b = Buffer.from(secret);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 // Grant runs detached so the HTTP response returns inside Top.gg's 5s window;
@@ -57,7 +120,13 @@ export const voteRoutes = new Elysia({ prefix: "/webhook" })
     "/topgg",
     ({ headers, body }) => {
       const raw = typeof body === "string" ? body : "";
-      if (!verifyTopggSignature(raw, headers["x-topgg-signature"], process.env.TOPGG_WEBHOOK_SECRET)) {
+      if (
+        !verifyTopggSignature(
+          raw,
+          headers["x-topgg-signature"],
+          process.env.TOPGG_WEBHOOK_SECRET,
+        )
+      ) {
         return status("Unauthorized", "Invalid signature");
       }
       let parsed: TopggBody;
@@ -69,7 +138,9 @@ export const voteRoutes = new Elysia({ prefix: "/webhook" })
       const voter = topggVoter(parsed);
       if (voter.test) return { ok: true, test: true };
       if (!voter.userId) {
-        logger.warn("Top.gg vote webhook missing voter id", { type: parsed.type });
+        logger.warn("Top.gg vote webhook missing voter id", {
+          type: parsed.type,
+        });
         return { ok: true };
       }
       rewardAsync(voter.userId, VoteSite.TopGg);
@@ -80,6 +151,32 @@ export const voteRoutes = new Elysia({ prefix: "/webhook" })
       // A parsed-then-restringified object would differ and fail verification.
       parse: async ({ request }) => await request.text(),
     },
-  );
+  )
+  .post("/discordservers", ({ headers, body }) => {
+    if (
+      !tokenMatches(
+        headers.authorization,
+        process.env.DISCORDSERVERS_WEBHOOK_TOKEN,
+      )
+    ) {
+      return status("Unauthorized", "Invalid token");
+    }
+    const parsed: DiscordServersBody = isRecord(body) ? body : {};
+    const vote = discordServersVote(parsed);
+    if (
+      !vote.event ||
+      !["gems", "bump", "vote"].includes(vote.event) ||
+      !vote.userId
+    ) {
+      logger.info("DiscordServers webhook not paid", {
+        event: vote.event,
+        payload: JSON.stringify(parsed).slice(0, 800),
+      });
+      return { ok: true };
+    }
+    rewardAsync(vote.userId, VoteSite.DiscordServers);
+    return { ok: true };
+  });
+
 // Discords.com gives a temp Discord role on upvote (configured on their
 // dashboard), not a webhook, so there is no /webhook/discords route.
