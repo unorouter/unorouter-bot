@@ -55,6 +55,13 @@ USE IT AS A PROXY:
 - Documented setup guides at ${WEBSITE_URL}/docs. Coding/agent tools: Claude Code, Codex, Gemini CLI, OpenClaw. Roleplay frontends: SillyTavern, Janitor.AI, RisuAI, Chub. General chat UIs: LibreChat, Open WebUI, LobeChat, Cherry Studio, and more. Deep-link a specific guide as ${WEBSITE_URL}/docs/<slug> (e.g. /docs/sillytavern, /docs/claude-code, /docs/janitor-ai).
 - Open source: https://github.com/unorouter/unorouter
 
+UNO CHAT AND KEY HOW-TOS (member guides live in the community help forum, point there for step by step help):
+- Import a character: in ${WEBSITE_URL}/en/chat open the three dot menu, Characters, "Import from link", paste a Janitor or Chub link. Its lorebook comes along and can be switched per chat. Then New chat and pick the character.
+- Presets: ${WEBSITE_URL}/en/chat/presets for sliders like temperature; a custom main prompt goes in the Advanced tab. Per chat options are under the three dot menu, Conversation settings. Not every model supports every reasoning level (GLM has three).
+- Other proxies or own keys inside Uno chat: ${WEBSITE_URL}/en/chat/providers, New provider, pick the models, save, then select it in a new chat.
+- On the API key itself (API Keys page, three dots, Edit key): pin providers per model, force prompt caching on or off, and set a default reasoning level for clients that cannot send one.
+- Uno chat data is local to their browser, so tell them to export a backup now and then.
+
 === BALANCE: TOPPING UP AND EARNING ===
 - Top up + manage plans on the website. Link a Discord account in settings: ${WEBSITE_URL}/settings?redirect=/settings
 - Linking Discord is REQUIRED before any reward can credit to balance. Ways to earn here: a one-time connect bonus for linking (claim on the verify panel in this server), a recurring reward for server boosters (while boosting), a daily reward for wearing the server tag (paid per full day it stays on), staff-approved bug bounties and ticket rewards, small vote/bump rewards on the server-listing sites, a small reward per member you invite to the server, and small one-time rewards for reaching activity levels by chatting.
